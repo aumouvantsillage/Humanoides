@@ -5,6 +5,7 @@ const CELL_WIDTH   = 24;
 const CELL_HEIGHT  = 24;
 const HUMAN_WIDTH  = 21;
 const HUMAN_HEIGHT = 24;
+const GRAVITY = 300;
 
 const SYMBOLS = {
     "X": "brick",
@@ -41,6 +42,7 @@ const board1 = [
 const game = new Phaser.Game(BOARD_WIDTH * CELL_WIDTH, BOARD_HEIGHT * CELL_HEIGHT, Phaser.AUTO, "", {preload, create, update});
 
 let player, cursors, groups;
+let lastDir = "right";
 
 function preload() {
     Object.values(SYMBOLS).forEach(name => game.load.image(name, `assets/${name}.png`));
@@ -74,36 +76,81 @@ function create() {
     cursors = game.input.keyboard.createCursorKeys();
 
     // Create player sprite.
-    player = game.add.sprite(CELL_WIDTH, CELL_HEIGHT, "human");
+    player = game.add.sprite(6*CELL_WIDTH, CELL_HEIGHT, "human");
     game.physics.arcade.enable(player);
-    player.body.bounce.y = 0.2;
-    player.body.gravity.y = 300;
+    player.body.bounce.y = 0;
+    player.body.gravity.y = GRAVITY;
     player.body.collideWorldBounds = false;
 
     player.animations.add("left", [0, 1, 2, 3, 4, 5], 10, true);
     player.animations.add("right", [7, 8, 9, 10, 11, 12], 10, true);
+    player.animations.add("updown", [15, 16, 17, 18], 10, true);
 
     createBoard(board1);
 }
 
+function centerPlayer() {
+    const tileIndex = Math.round((player.body.x + HUMAN_WIDTH / 2) / CELL_WIDTH - 0.5);
+    player.body.x = CELL_WIDTH * (tileIndex + 0.5) - HUMAN_WIDTH / 2;
+}
+
 function update() {
+    const onBrick = game.physics.arcade.collide(player, groups.brick);
+    const onLadder = game.physics.arcade.overlap(player, groups.ladder);
+    const onRope = game.physics.arcade.overlap(player, groups.rope);
+
     player.body.velocity.x = 0;
 
-    if (game.physics.arcade.collide(player, groups.brick)) {
-        if (cursors.left.isDown) {
-            player.body.velocity.x = -150;
-            player.animations.play("left");
-        }
-        else if (cursors.right.isDown) {
-            player.body.velocity.x = 150;
-            player.animations.play("right");
-        }
-        else {
-            player.animations.stop();
-            player.frame = 6;
-        }
+    if ((onLadder || onRope) && !onBrick) {
+        player.body.velocity.y = 0;
+        player.body.gravity.y = 0;
     }
     else {
-        player.frame = 13;
+        player.body.gravity.y = GRAVITY;
+    }
+
+    if (onLadder && cursors.up.isDown) {
+        // Animate climb up
+        player.body.velocity.y = -150;
+        centerPlayer();
+        player.animations.play("updown");
+    }
+    else if (onLadder && cursors.down.isDown){
+        // Animate climb down
+        player.body.velocity.y = 150;
+        centerPlayer();
+        player.animations.play("updown");
+    }
+    else if ((onBrick || onLadder) && cursors.left.isDown) {
+        // Animate run left
+        player.body.velocity.x = -150;
+        player.animations.play("left");
+        lastDir = "left";
+    }
+    else if ((onBrick || onLadder) && cursors.right.isDown) {
+        // Animate run right
+        player.body.velocity.x = 150;
+        player.animations.play("right");
+        lastDir = "right";
+    }
+    else if (onBrick) {
+        // Standing still
+        player.animations.stop();
+        player.frame = 6;
+    }
+    else if (onLadder) {
+        // Climbing still
+        player.animations.stop();
+        player.frame = 18;
+    }
+    else {
+        // Falling
+        player.animations.stop();
+        if (lastDir === "right") {
+            player.frame = 13;
+        }
+        else {
+            player.frame = 14;
+        }
     }
 }
