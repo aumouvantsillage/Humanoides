@@ -8,41 +8,42 @@ const HUMAN_HEIGHT = 24;
 const GRAVITY = 300;
 
 const SYMBOLS = {
-    "X": "brick",
-    "+": "ladder",
+    "%": "brick",
+    "H": "ladder",
     "-": "rope",
     "@": "gift"
 };
 
 const board1 = [
-    "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-    "X                                      X",
-    "X   +XXXXXXXX                          X",
-    "X   +X      -------+                   X",
-    "X   +X   @  X      +                   X",
-    "X   +XXXXXXXX      +    -----+         X",
-    "X   +              XXXXXX    +         X",
-    "X  +XXXXXXXXXXXXX+ X    X    +         X",
-    "X  +X           X+ X @  X    XXXXXX    X",
-    "X  +X           X+ XXXXXX    X    X    X",
-    "X  +X           X+           X @  X    X",
-    "X  +X           X+    @      XXXXXX    X",
-    "X  +X         XXXXXXXXXXXXXX+          X",
-    "X  +X         X X          X+          X",
-    "X  +X         X X          X+          X",
-    "X  +X         X X          X+  @       X",
-    "X  +X         X X        XXXXXXXXXXX+  X",
-    "X  +X         X X        X X       X+  X",
-    "X  +X         X X        X X       X+  X",
-    "X  +X         X X        X X       X+  X",
-    "X  +X         XXX        XXX       X+  X",
-    "XXX+                                +XXX"
+    "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%",
+    "%                                      %",
+    "%   H%%%%%%%%                          %",
+    "%   H%       ------H                   %",
+    "%   H%   @  %      H                   %",
+    "%   H%%%%%%%%      H     ----H         %",
+    "%   H              %%%%%%    H         %",
+    "%  H%%%%%%%%%%%%%H %    %    H         %",
+    "%  H%           %H % @  %    %%%%%%    %",
+    "%  H%           %H %%%%%%    %    %    %",
+    "%  H%           %H           % @  %    %",
+    "%  H%           %H    @      %%%%%%    %",
+    "%  H%         %%%%%%%%%%%%%%H          %",
+    "%  H%         % %          %H          %",
+    "%  H%         % %          %H          %",
+    "%  H%         % %          %H  @       %",
+    "%  H%         % %        %%%%%%%%%%%H  %",
+    "%  H%         % %        % %       %H  %",
+    "%  H%         % %        % %       %H  %",
+    "%  H%         % %        % %       %H  %",
+    "%  H%         %%%        %%%       %H  %",
+    "%%%H                                H%%%"
 ];
 
 const game = new Phaser.Game(BOARD_WIDTH * CELL_WIDTH, BOARD_HEIGHT * CELL_HEIGHT, Phaser.AUTO, "", {preload, create, update});
 
 let player, cursors, groups;
 let lastDir = "right";
+let onLadderPrev = false;
 
 function preload() {
     Object.values(SYMBOLS).forEach(name => game.load.image(name, `assets/${name}.png`));
@@ -84,6 +85,7 @@ function create() {
 
     player.animations.add("left", [0, 1, 2, 3, 4, 5], 10, true);
     player.animations.add("right", [7, 8, 9, 10, 11, 12], 10, true);
+    player.animations.add("rope", [19, 20, 21, 22], 10, true);
     player.animations.add("updown", [15, 16, 17, 18], 10, true);
 
     createBoard(board1);
@@ -94,20 +96,31 @@ function centerPlayer() {
     player.body.x = CELL_WIDTH * (tileIndex + 0.5) - HUMAN_WIDTH / 2;
 }
 
+function collectGift(player, gift) {
+    gift.kill();
+}
+
 function update() {
     const onBrick = game.physics.arcade.collide(player, groups.brick);
     const onLadder = game.physics.arcade.overlap(player, groups.ladder);
     const onRope = game.physics.arcade.overlap(player, groups.rope);
+    game.physics.arcade.overlap(player, groups.gift, collectGift);
 
     player.body.velocity.x = 0;
 
-    if ((onLadder || onRope) && !onBrick) {
+    if (onRope || onLadder && !onBrick) {
         player.body.velocity.y = 0;
         player.body.gravity.y = 0;
     }
     else {
         player.body.gravity.y = GRAVITY;
     }
+
+    // FIXME prevent bouncing when climbing past the top of a ladder
+    if (onLadderPrev && !onLadder) {
+        player.body.velocity.y = 0;
+    }
+    onLadderPrev = onLadder;
 
     if (onLadder && cursors.up.isDown) {
         // Animate climb up
@@ -133,6 +146,18 @@ function update() {
         player.animations.play("right");
         lastDir = "right";
     }
+    else if (onRope && cursors.left.isDown) {
+        // Animate run left
+        player.body.velocity.x = -150;
+        player.animations.play("rope");
+        lastDir = "left";
+    }
+    else if (onRope && cursors.right.isDown) {
+        // Animate run right
+        player.body.velocity.x = 150;
+        player.animations.play("rope");
+        lastDir = "right";
+    }
     else if (onBrick) {
         // Standing still
         player.animations.stop();
@@ -142,6 +167,11 @@ function update() {
         // Climbing still
         player.animations.stop();
         player.frame = 18;
+    }
+    else if (onRope) {
+        // Suspended still
+        player.animations.stop();
+        player.frame = 19;
     }
     else {
         // Falling
