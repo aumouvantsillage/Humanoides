@@ -32,8 +32,21 @@ module.exports = function(grunt) {
                     dest: "build/"
                 }]
             }
-        }
+        },
+
+        browserify: {
+            all: {
+                options: {
+                    browserifyOptions: {
+                        basedir: "build/js"
+                    }
+                },
+                src: ["build/js/index.js"],
+                dest: "build/js/index.web.js"
+            }
+        },
+
     });
 
-    grunt.registerTask("default", ["babel"]);
+    grunt.registerTask("default", ["babel", "browserify"]);
 };
