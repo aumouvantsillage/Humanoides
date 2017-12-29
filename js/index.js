@@ -8,7 +8,7 @@ const TILE_HEIGHT_PX           = 24;
 const HUMAN_WIDTH_PX           = 21;
 const HUMAN_HEIGHT_PX          = 24;
 const HUMAN_SPEED_PX_PER_FRAME = 2; // Pixels / 60 ms
-const GRAVITY                  = 0.5 / BOARD_HEIGHT_TL;
+const GRAVITY                  = 0.1;
 
 const HUMAN_POS = {
     "standing": [6],
@@ -213,6 +213,7 @@ const Player = {
 
         if (this.state === "falling") {
             this.vyPix += GRAVITY;
+            console.log(this.vyPix);
         }
         this.sprite.x += this.vxPix;
         this.sprite.y += this.vyPix;
