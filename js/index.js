@@ -7,13 +7,23 @@ const TILE_WIDTH_PX   = 24;
 const TILE_HEIGHT_PX  = 24;
 const HUMAN_WIDTH_PX  = 21;
 const HUMAN_HEIGHT_PX = 24;
+const HUMAN_SPEED     = 6;
 const GRAVITY = 300;
 
-const HUMAN_STANDING    = 6;
-const HUMAN_LEFT_ANIM   = [0, 1, 2, 3, 4, 5];
-const HUMAN_RIGHT_ANIM  = [7, 8, 9, 10, 11, 12];
-const HUMAN_ROPE_ANIM   = [19, 20, 21, 22];
-const HUMAN_LADDER_ANIM = [15, 16, 17, 18];
+const HUMAN_POS = {
+    "standing": [6],
+    "running-left": [0, 1, 2, 3, 4, 5],
+    "running-right": [7, 8, 9, 10, 11, 12],
+    "hanging": [19],
+    "hanging-left": [19, 20, 21, 22],
+    "hanging-right": [19, 20, 21, 22],
+    "ladder": [18],
+    "climbing-up": [15, 16, 17, 18],
+    "climbing-down": [15, 16, 17, 18],
+    "falling": [13, 13, 13, 14, 14, 14]
+};
+
+const FRAMES_PER_ANIMATION_STEP = 5;
 
 const SYMBOLS = {
     "%": "brick",
@@ -48,7 +58,337 @@ const board1 = [
     "%%%H                                H%%%"
 ];
 
-const game = {
+const Player = {
+    init(sprite) {
+        this.sprite = sprite;
+        this.state = "standing";
+        this.step = 0;
+        this.vxPix = 0;
+        this.vyPix = 0;
+        return this;
+    },
+
+    get xTile() {
+        return Math.floor(this.sprite.x / TILE_WIDTH_PX);
+    },
+
+    get yTile() {
+        return Math.floor(this.sprite.y / TILE_HEIGHT_PX);
+    },
+
+    get xPix() {
+        return this.sprite.x;
+    },
+
+    get yPix() {
+        return this.sprite.y;
+    },
+
+    get canMoveLeft() {
+        return this.xTile > 0 && Game.board[this.yTile][this.xTile - 1] !== '%';
+    },
+
+    get canMoveRight() {
+        return this.xTile < BOARD_WIDTH_TL - 1 && Game.board[this.yTile][this.xTile + 1] !== '%';
+    },
+
+    get canStand() {
+        return this.yTile == BOARD_HEIGHT_TL - 1 ||
+               Game.board[this.yTile + 1][this.xTile] === '%' ||
+               Game.board[this.yTile + 1][this.xTile] === 'H';
+    },
+
+    get canHang() {
+        return Game.board[this.yTile][this.xTile] === '-';
+    },
+
+    get canClimbUp() {
+        return Game.board[this.yTile][this.xTile] === 'H';
+    },
+
+    get canClimbDown() {
+        return this.yTile < BOARD_HEIGHT_TL - 1 && Game.board[this.yTile + 1][this.xTile] === 'H';
+    },
+
+    stand() {
+        if (this.canClimbUp) {
+            this.state = "ladder";
+        }
+        else {
+            this.state = "standing";
+        }
+        this.step = 0;
+        this.vxPix = 0;
+        this.vyPix = 0;
+    },
+
+    runLeft() {
+        this.state = "running-left";
+        this.step = 0;
+        this.vxPix = -HUMAN_SPEED;
+        this.vyPix = 0;
+    },
+
+    runRight() {
+        this.state = "running-right";
+        this.step = 0;
+        this.vxPix = HUMAN_SPEED;
+        this.vyPix = 0;
+    },
+
+    fall() {
+        this.state = "falling";
+        this.step = 0;
+        this.vxPix = 0;
+        this.vyPix = HUMAN_SPEED;
+    },
+
+    hang() {
+        this.state = "hanging";
+        this.step = 0;
+        this.vxPix = 0;
+        this.vyPix = 0;
+    },
+
+    hangLeft() {
+        this.state = "hanging-left";
+        this.step = 0;
+        this.vxPix = -HUMAN_SPEED;
+        this.vyPix = 0;
+    },
+
+    hangRight() {
+        this.state = "hanging-right";
+        this.step = 0;
+        this.vxPix = HUMAN_SPEED;
+        this.vyPix = 0;
+    },
+
+    climbUp() {
+        this.state = "climbing-up";
+        this.step = 0;
+        this.vxPix = 0;
+        this.vyPix = -HUMAN_SPEED;
+    },
+
+    climbDown() {
+        this.state = "climbing-down";
+        this.step = 0;
+        this.vxPix = 0;
+        this.vyPix = HUMAN_SPEED;
+    },
+
+    finishMove(method) {
+        let xTileCenterPix = (this.xTile + 0.5) * TILE_WIDTH_PX;
+
+        if ((this.state === "running-left"  || this.state == "hanging-left")  && this.xPix > xTileCenterPix && this.xPix + this.vxPix <= xTileCenterPix ||
+            (this.state === "running-right" || this.state == "hanging-right") && this.xPix < xTileCenterPix && this.xPix + this.vxPix >= xTileCenterPix) {
+            this.sprite.x = xTileCenterPix;
+            method.call(this);
+        }
+
+        let yTileCenterPix = (this.yTile + 0.5) * TILE_HEIGHT_PX;
+
+        if ( this.state === "climbing-up"                               && this.yPix > yTileCenterPix && this.yPix + this.vyPix <= yTileCenterPix ||
+            (this.state === "climbing-down" || this.state == "falling") && this.yPix < yTileCenterPix && this.yPix + this.vyPix >= yTileCenterPix) {
+            this.sprite.y = yTileCenterPix;
+            method.call(this);
+        }
+    },
+
+    update() {
+        // Animate the sprite
+        const anim = HUMAN_POS[this.state];
+        this.sprite.texture.frame = new PIXI.Rectangle(anim[this.step] * HUMAN_WIDTH_PX + 0.5, 0, HUMAN_WIDTH_PX - 1, HUMAN_HEIGHT_PX);
+
+        // Move to next animation step
+        this.step ++;
+        if (this.step === anim.length) {
+            this.step = 0;
+        }
+
+        this.sprite.x += this.vxPix;
+        this.sprite.y += this.vyPix;
+
+        switch (this.state) {
+            case "standing":
+                if (this.canHang) {
+                    this.hang();
+                }
+                else if (!this.canStand) {
+                    this.fall();
+                }
+                else if (Game.key.left && this.canMoveLeft) {
+                    this.runLeft();
+                }
+                else if (Game.key.right && this.canMoveRight) {
+                    this.runRight();
+                }
+                else if (Game.key.up && this.canClimbUp) {
+                    this.climbUp();
+                }
+                else if (Game.key.down && this.canClimbDown) {
+                    this.climbDown();
+                }
+                break;
+            case "running-left":
+                if (this.canHang) {
+                    this.finishMove(this.hang);
+                }
+                else if (!this.canStand) {
+                    this.finishMove(this.fall);
+                }
+                else if (Game.key.right && this.canMoveRight) {
+                    this.runRight();
+                }
+                else if (Game.key.up && this.canClimbUp) {
+                    this.finishMove(this.climbUp);
+                }
+                else if (Game.key.down && this.canClimbDown) {
+                    this.finishMove(this.climbDown);
+                }
+                else if (!Game.key.left || !this.canMoveLeft) {
+                    this.finishMove(this.stand);
+                }
+                break;
+            case "running-right":
+                if (this.canHang) {
+                    this.finishMove(this.hang);
+                }
+                else if (!this.canStand) {
+                    this.finishMove(this.fall);
+                }
+                else if (Game.key.left && this.canMoveLeft) {
+                    this.runLeft();
+                }
+                else if (Game.key.up && this.canClimbUp) {
+                    this.finishMove(this.climbUp);
+                }
+                else if (Game.key.down && this.canClimbDown) {
+                    this.finishMove(this.climbDown);
+                }
+                else if (!Game.key.right || !this.canMoveRight) {
+                    this.finishMove(this.stand);
+                }
+                break;
+            case "falling":
+                if (this.canStand) {
+                    this.finishMove(this.stand);
+                }
+                else if (this.canHang) {
+                    this.finishMove(this.hang);
+                }
+                break;
+            case "hanging":
+                if (Game.key.down) {
+                    this.fall();
+                }
+                else if (Game.key.left && this.canMoveLeft) {
+                    this.hangLeft();
+                }
+                else if (Game.key.right && this.canMoveRight) {
+                    this.hangRight();
+                }
+                break;
+            case "hanging-left":
+                if (this.canStand) {
+                    this.finishMove(this.stand);
+                }
+                else if (!this.canHang) {
+                    this.finishMove(this.fall);
+                }
+                else if (Game.key.right && this.canMoveRight) {
+                    this.hangRight();
+                }
+                else if (Game.key.up && this.canClimbUp) {
+                    this.finishMove(this.climbUp);
+                }
+                else if (Game.key.down && this.canClimbDown) {
+                    this.finishMove(this.climbDown);
+                }
+                else if (!Game.key.left || !this.canMoveLeft) {
+                    this.finishMove(this.hang);
+                }
+                break;
+            case "hanging-right":
+                if (this.canStand) {
+                    this.finishMove(this.stand);
+                }
+                else if (!this.canHang) {
+                    this.finishMove(this.fall);
+                }
+                else if (Game.key.left && this.canMoveLeft) {
+                    this.hangLeft();
+                }
+                else if (Game.key.up && this.canClimbUp) {
+                    this.finishMove(this.climbUp);
+                }
+                else if (Game.key.down && this.canClimbDown) {
+                    this.finishMove(this.climbDown);
+                }
+                else if (!Game.key.right || !this.canMoveRight) {
+                    this.finishMove(this.hang);
+                }
+                break;
+            case "ladder":
+                if (Game.key.left && this.canMoveLeft) {
+                    this.runLeft();
+                }
+                else if (Game.key.right && this.canMoveRight) {
+                    this.runRight();
+                }
+                else if (Game.key.up && this.canClimbUp) {
+                    this.climbUp();
+                }
+                else if (Game.key.down && this.canClimbDown) {
+                    this.climbDown();
+                }
+                else if (Game.key.down && !this.canStand) {
+                    this.fall();
+                }
+                break;
+            case "climbing-up":
+                if (Game.key.left && this.canMoveLeft) {
+                    this.finishMove(this.runLeft);
+                }
+                else if (Game.key.right && this.canMoveRight) {
+                    this.finishMove(this.runRight);
+                }
+                else if (Game.key.down && this.canClimbDown) {
+                    this.climbDown();
+                }
+                else if (this.canHang) {
+                    this.finishMove(this.hang);
+                }
+                else if (!Game.key.up || !this.canClimbUp) {
+                    this.finishMove(this.stand);
+                }
+                break;
+            case "climbing-down":
+                if (Game.key.left && this.canMoveLeft) {
+                    this.finishMove(this.runLeft);
+                }
+                else if (Game.key.right && this.canMoveRight) {
+                    this.finishMove(this.runRight);
+                }
+                else if (Game.key.up && this.canClimbUp) {
+                    this.climbUp();
+                }
+                else if (this.canHang) {
+                    this.finishMove(this.hang);
+                }
+                else if (!this.canClimbUp && !this.canClimbDown && !this.canStand) {
+                    this.finishMove(this.fall);
+                }
+                else if (!Game.key.down || !this.canClimbDown) {
+                    this.finishMove(this.stand);
+                }
+                break;
+        }
+    }
+};
+
+const Game = {
     init(board) {
         this.board = board;
 
@@ -59,10 +399,13 @@ const game = {
 
         Object.values(SYMBOLS).forEach(name => PIXI.loader.add(`assets/${name}.png`));
         PIXI.loader.load(() => this.setup());
-    },
 
-    set humanPosition(index) {
-        this.human.texture.frame = new PIXI.Rectangle(index * HUMAN_WIDTH_PX + 0.5, 0, HUMAN_WIDTH_PX, HUMAN_HEIGHT_PX);
+        this.key = {
+            left: false,
+            right: false,
+            up: false,
+            down: false
+        };
     },
 
     setup() {
@@ -82,186 +425,42 @@ const game = {
 
                     // Keep a reference to the human sprite
                     if (spriteName === "human") {
-                        this.human = sprite;
+                        this.player = Object.create(Player).init(sprite);
                     }
                 }
            });
        });
 
-       this.humanPosition = HUMAN_STANDING;
-
-       this.renderer.render(this.stage);
+       this.frameCounter = 0;
 
        this.loop();
    },
 
     loop() {
+        // Loop this function every 60 ms
+        requestAnimationFrame(() => this.loop());
+        this.frameCounter ++;
+        if (this.frameCounter % FRAMES_PER_ANIMATION_STEP === 0) {
+            this.update();
+            this.frameCounter -= FRAMES_PER_ANIMATION_STEP;
+        }
+    },
 
+    onKeyChange(evt, down) {
+        switch (evt.keyCode) {
+            case 37: this.key.left  = down; break;
+            case 38: this.key.up    = down; break;
+            case 39: this.key.right = down; break;
+            case 40: this.key.down  = down; break;
+        }
+    },
+
+    update() {
+        this.player.update();
+        this.renderer.render(this.stage);
     }
 };
 
-window.addEventListener("load", () => game.init(board1));
-
-
-function obsolete() {
-    let player, cursors, groups;
-    let lastDir = "right";
-    let onLadderPrev = false, onRopePrev = false;
-    let board = board1;
-
-    function preload() {
-        Object.values(SYMBOLS).forEach(name => game.load.image(name, `assets/${name}.png`));
-        game.load.spritesheet("human", "assets/human.png", HUMAN_WIDTH, HUMAN_HEIGHT);
-    }
-
-    function createBoard() {
-        groups = {};
-        Object.values(SYMBOLS).forEach(name => {
-            const g = game.add.group();
-            g.enableBody = true;
-            groups[name] = g;
-        });
-
-        board.forEach((row, i) => {
-            row.split("").forEach((c, j) => {
-                if (c in SYMBOLS) {
-                    const g = SYMBOLS[c];
-                    const b = groups[g].create(j * CELL_WIDTH, i * CELL_HEIGHT, g);
-                    b.body.immovable = true;
-                }
-            });
-        });
-    }
-
-    function create() {
-        // Start physics system.
-        game.physics.startSystem(Phaser.Physics.ARCADE);
-
-        // Use keyboard input.
-        cursors = game.input.keyboard.createCursorKeys();
-
-        // Create player sprite.
-        player = game.add.sprite(6*CELL_WIDTH, CELL_HEIGHT, "human");
-        game.physics.arcade.enable(player);
-        player.body.bounce.y = 0;
-        player.body.gravity.y = GRAVITY;
-        player.body.collideWorldBounds = false;
-
-        player.animations.add("left", [0, 1, 2, 3, 4, 5], 10, true);
-        player.animations.add("right", [7, 8, 9, 10, 11, 12], 10, true);
-        player.animations.add("rope", [19, 20, 21, 22], 10, true);
-        player.animations.add("updown", [15, 16, 17, 18], 10, true);
-
-        createBoard();
-    }
-
-    function centerPlayer() {
-        const tileIndex = Math.round((player.body.x + HUMAN_WIDTH / 2) / CELL_WIDTH - 0.5);
-        player.body.x = CELL_WIDTH * (tileIndex + 0.5) - HUMAN_WIDTH / 2;
-    }
-
-    function collectGift(player, gift) {
-        gift.kill();
-    }
-
-    function getTileType(offsetX = 0, offsetY = 0) {
-        const x = Math.floor((player.body.left + player.body.halfWidth) / CELL_WIDTH)  + offsetX;
-        if (x < 0 || x >= BOARD_WIDTH) {
-            return "empty";
-        }
-
-        const y = Math.floor((player.body.top + player.body.halfHeight) / CELL_HEIGHT) + offsetY;
-        if (y < 0 || y >= BOARD_HEIGHT) {
-            return "empty";
-        }
-
-        const s = board[y][x];
-        return s in SYMBOLS ? SYMBOLS[s] : "empty";
-    }
-
-    function update() {
-        const onBrick = game.physics.arcade.collide(player, groups.brick) && player.body.bottom % CELL_HEIGHT === 0;
-        const onLadder = getTileType() === "ladder";
-        const onTopOfLadder = !onLadder && getTileType(0, 1) === "ladder";
-        const onRope = getTileType() === "rope";
-        game.physics.arcade.overlap(player, groups.gift, collectGift);
-
-        player.body.velocity.x = 0;
-
-        if (onRope || onLadder && !onBrick) {
-            player.body.velocity.y = 0;
-            player.body.gravity.y = 0;
-        }
-        else {
-            player.body.gravity.y = GRAVITY;
-        }
-
-        // FIXME prevent bouncing when climbing past the top of a ladder
-        if (onLadderPrev && !onLadder) {
-            player.body.velocity.y = 0;
-        }
-        onLadderPrev = onLadder;
-
-        if (onLadder && cursors.up.isDown) {
-            // Animate climb up
-            player.body.velocity.y = -150;
-            centerPlayer();
-            player.animations.play("updown");
-        }
-        else if ((onLadder || onTopOfLadder) && !onBrick && cursors.down.isDown){
-            // Animate climb down
-            player.body.velocity.y = 150;
-            centerPlayer();
-            player.animations.play("updown");
-        }
-        else if ((onBrick || onLadder) && cursors.left.isDown) {
-            // Animate run left
-            player.body.velocity.x = -150;
-            player.animations.play("left");
-            lastDir = "left";
-        }
-        else if ((onBrick || onLadder) && cursors.right.isDown) {
-            // Animate run right
-            player.body.velocity.x = 150;
-            player.animations.play("right");
-            lastDir = "right";
-        }
-        else if (onRope && cursors.left.isDown) {
-            // Animate run left
-            player.body.velocity.x = -150;
-            player.animations.play("rope");
-            lastDir = "left";
-        }
-        else if (onRope && cursors.right.isDown) {
-            // Animate run right
-            player.body.velocity.x = 150;
-            player.animations.play("rope");
-            lastDir = "right";
-        }
-        else if (onBrick) {
-            // Standing still
-            player.animations.stop();
-            player.frame = 6;
-        }
-        else if (onLadder) {
-            // Climbing still
-            player.animations.stop();
-            player.frame = 18;
-        }
-        else if (onRope) {
-            // Suspended still
-            player.animations.stop();
-            player.frame = 19;
-        }
-        else {
-            // Falling
-            player.animations.stop();
-            if (lastDir === "right") {
-                player.frame = 13;
-            }
-            else {
-                player.frame = 14;
-            }
-        }
-    }
-}
+window.addEventListener("load", () => Game.init(board1));
+window.addEventListener("keydown", (evt) => Game.onKeyChange(evt, true));
+window.addEventListener("keyup", (evt) => Game.onKeyChange(evt, false));
