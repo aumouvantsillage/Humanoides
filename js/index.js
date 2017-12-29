@@ -1,14 +1,14 @@
 
 import "pixi.js";
 
-const BOARD_WIDTH_TL  = 40;
-const BOARD_HEIGHT_TL = 22;
-const TILE_WIDTH_PX   = 24;
-const TILE_HEIGHT_PX  = 24;
-const HUMAN_WIDTH_PX  = 21;
-const HUMAN_HEIGHT_PX = 24;
-const HUMAN_SPEED     = 6;
-const GRAVITY = 300;
+const BOARD_WIDTH_TL           = 40;
+const BOARD_HEIGHT_TL          = 22;
+const TILE_WIDTH_PX            = 24;
+const TILE_HEIGHT_PX           = 24;
+const HUMAN_WIDTH_PX           = 21;
+const HUMAN_HEIGHT_PX          = 24;
+const HUMAN_SPEED_PX_PER_FRAME = 2; // Pixels / 60 ms
+const GRAVITY                  = 0.5 / BOARD_HEIGHT_TL;
 
 const HUMAN_POS = {
     "standing": [6],
@@ -65,6 +65,7 @@ const Player = {
         this.step = 0;
         this.vxPix = 0;
         this.vyPix = 0;
+        this.frameCounter = 0;
         return this;
     },
 
@@ -125,14 +126,14 @@ const Player = {
     runLeft() {
         this.state = "running-left";
         this.step = 0;
-        this.vxPix = -HUMAN_SPEED;
+        this.vxPix = -HUMAN_SPEED_PX_PER_FRAME;
         this.vyPix = 0;
     },
 
     runRight() {
         this.state = "running-right";
         this.step = 0;
-        this.vxPix = HUMAN_SPEED;
+        this.vxPix = HUMAN_SPEED_PX_PER_FRAME;
         this.vyPix = 0;
     },
 
@@ -140,7 +141,7 @@ const Player = {
         this.state = "falling";
         this.step = 0;
         this.vxPix = 0;
-        this.vyPix = HUMAN_SPEED;
+        this.vyPix = 0;
     },
 
     hang() {
@@ -153,14 +154,14 @@ const Player = {
     hangLeft() {
         this.state = "hanging-left";
         this.step = 0;
-        this.vxPix = -HUMAN_SPEED;
+        this.vxPix = -HUMAN_SPEED_PX_PER_FRAME;
         this.vyPix = 0;
     },
 
     hangRight() {
         this.state = "hanging-right";
         this.step = 0;
-        this.vxPix = HUMAN_SPEED;
+        this.vxPix = HUMAN_SPEED_PX_PER_FRAME;
         this.vyPix = 0;
     },
 
@@ -168,14 +169,14 @@ const Player = {
         this.state = "climbing-up";
         this.step = 0;
         this.vxPix = 0;
-        this.vyPix = -HUMAN_SPEED;
+        this.vyPix = -HUMAN_SPEED_PX_PER_FRAME;
     },
 
     climbDown() {
         this.state = "climbing-down";
         this.step = 0;
         this.vxPix = 0;
-        this.vyPix = HUMAN_SPEED;
+        this.vyPix = HUMAN_SPEED_PX_PER_FRAME;
     },
 
     finishMove(method) {
@@ -197,16 +198,22 @@ const Player = {
     },
 
     update() {
-        // Animate the sprite
-        const anim = HUMAN_POS[this.state];
-        this.sprite.texture.frame = new PIXI.Rectangle(anim[this.step] * HUMAN_WIDTH_PX + 0.5, 0, HUMAN_WIDTH_PX - 1, HUMAN_HEIGHT_PX);
+        this.frameCounter ++;
+        if (this.frameCounter % FRAMES_PER_ANIMATION_STEP === 0) {
+            // Animate the sprite
+            const anim = HUMAN_POS[this.state];
+            this.sprite.texture.frame = new PIXI.Rectangle(anim[this.step] * HUMAN_WIDTH_PX + 0.5, 0, HUMAN_WIDTH_PX - 1, HUMAN_HEIGHT_PX);
 
-        // Move to next animation step
-        this.step ++;
-        if (this.step === anim.length) {
-            this.step = 0;
+            // Move to next animation step
+            this.step ++;
+            if (this.step === anim.length) {
+                this.step = 0;
+            }
         }
 
+        if (this.state === "falling") {
+            this.vyPix += GRAVITY;
+        }
         this.sprite.x += this.vxPix;
         this.sprite.y += this.vyPix;
 
@@ -431,19 +438,13 @@ const Game = {
            });
        });
 
-       this.frameCounter = 0;
-
        this.loop();
    },
 
     loop() {
         // Loop this function every 60 ms
         requestAnimationFrame(() => this.loop());
-        this.frameCounter ++;
-        if (this.frameCounter % FRAMES_PER_ANIMATION_STEP === 0) {
-            this.update();
-            this.frameCounter -= FRAMES_PER_ANIMATION_STEP;
-        }
+        this.update();
     },
 
     onKeyChange(evt, down) {
