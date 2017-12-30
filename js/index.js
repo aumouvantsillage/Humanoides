@@ -9,6 +9,7 @@ const HUMAN_WIDTH_PX           = 21;
 const HUMAN_HEIGHT_PX          = 24;
 const HUMAN_SPEED_PX_PER_FRAME = 2; // Pixels / 60 ms
 const GRAVITY                  = TILE_HEIGHT_PX / BOARD_HEIGHT_TL / 18;
+const TILE_HIDE_DELAY_MS       = 3000;
 
 const HUMAN_POS = {
     "standing": [6],
@@ -232,10 +233,10 @@ const Player = {
 
         if (this.yTile < BOARD_HEIGHT_TL - 1) {
             if (this.commands.breakLeft && this.xTile > 0 && Game.board[this.yTile + 1][this.xTile - 1] === '%') {
-                Game.removeTile(this.yTile + 1, this.xTile - 1);
+                Game.breakTile(this.yTile + 1, this.xTile - 1);
             }
             if (this.commands.breakRight && this.xTile < BOARD_WIDTH_TL - 1 && Game.board[this.yTile + 1][this.xTile + 1] === '%') {
-                Game.removeTile(this.yTile + 1, this.xTile + 1);
+                Game.breakTile(this.yTile + 1, this.xTile + 1);
             }
         }
 
@@ -488,9 +489,20 @@ const Game = {
         this.renderer.render(this.stage);
     },
 
-    removeTile(y, x) {
+    breakTile(y, x) {
+        let symbol = this.board[y][x];
+        let tile = this.tiles[y][x];
+
+        // Remove the current tile.
         this.board[y][x] = ' ';
-        this.stage.removeChild(this.tiles[y][x]);
+        this.stage.removeChild(tile);
+
+        // Show it again after a given delay.
+        window.setTimeout(() => {
+            this.board[y][x] = symbol;
+            this.stage.addChild(tile);
+            // TODO if character at this location, move it up.
+        }, TILE_HIDE_DELAY_MS);
     }
 };
 
