@@ -8,7 +8,7 @@ const TILE_HEIGHT_PX           = 24;
 const HUMAN_WIDTH_PX           = 21;
 const HUMAN_HEIGHT_PX          = 24;
 const HUMAN_SPEED_PX_PER_FRAME = 2; // Pixels / 60 ms
-const GRAVITY                  = 0.1;
+const GRAVITY                  = TILE_HEIGHT_PX / BOARD_HEIGHT_TL / 18;
 
 const HUMAN_POS = {
     "standing": [6],
@@ -31,6 +31,15 @@ const SYMBOLS = {
     "-": "rope",
     "@": "gift",
     "X": "human"
+};
+
+const KEYS = {
+    left:       37,
+    up:         38,
+    right:      39,
+    down:       40,
+    breakLeft:  87, // W
+    breakRight: 88  // X
 };
 
 const board1 = [
@@ -66,6 +75,10 @@ const Player = {
         this.vxPix = 0;
         this.vyPix = 0;
         this.frameCounter = 0;
+        this.commands = {};
+        for (let key in KEYS) {
+            this.commands[key] = false;
+        }
         return this;
     },
 
@@ -213,10 +226,18 @@ const Player = {
 
         if (this.state === "falling") {
             this.vyPix += GRAVITY;
-            console.log(this.vyPix);
         }
         this.sprite.x += this.vxPix;
         this.sprite.y += this.vyPix;
+
+        if (this.yTile < BOARD_HEIGHT_TL - 1) {
+            if (this.commands.breakLeft && this.xTile > 0 && Game.board[this.yTile + 1][this.xTile - 1] === '%') {
+                Game.removeTile(this.yTile + 1, this.xTile - 1);
+            }
+            if (this.commands.breakRight && this.xTile < BOARD_WIDTH_TL - 1 && Game.board[this.yTile + 1][this.xTile + 1] === '%') {
+                Game.removeTile(this.yTile + 1, this.xTile + 1);
+            }
+        }
 
         switch (this.state) {
             case "standing":
@@ -226,16 +247,16 @@ const Player = {
                 else if (!this.canStand) {
                     this.fall();
                 }
-                else if (Game.key.left && this.canMoveLeft) {
+                else if (this.commands.left && this.canMoveLeft) {
                     this.runLeft();
                 }
-                else if (Game.key.right && this.canMoveRight) {
+                else if (this.commands.right && this.canMoveRight) {
                     this.runRight();
                 }
-                else if (Game.key.up && this.canClimbUp) {
+                else if (this.commands.up && this.canClimbUp) {
                     this.climbUp();
                 }
-                else if (Game.key.down && this.canClimbDown) {
+                else if (this.commands.down && this.canClimbDown) {
                     this.climbDown();
                 }
                 break;
@@ -246,16 +267,16 @@ const Player = {
                 else if (!this.canStand) {
                     this.finishMove(this.fall);
                 }
-                else if (Game.key.right && this.canMoveRight) {
+                else if (this.commands.right && this.canMoveRight) {
                     this.runRight();
                 }
-                else if (Game.key.up && this.canClimbUp) {
+                else if (this.commands.up && this.canClimbUp) {
                     this.finishMove(this.climbUp);
                 }
-                else if (Game.key.down && this.canClimbDown) {
+                else if (this.commands.down && this.canClimbDown) {
                     this.finishMove(this.climbDown);
                 }
-                else if (!Game.key.left || !this.canMoveLeft) {
+                else if (!this.commands.left || !this.canMoveLeft) {
                     this.finishMove(this.stand);
                 }
                 break;
@@ -266,16 +287,16 @@ const Player = {
                 else if (!this.canStand) {
                     this.finishMove(this.fall);
                 }
-                else if (Game.key.left && this.canMoveLeft) {
+                else if (this.commands.left && this.canMoveLeft) {
                     this.runLeft();
                 }
-                else if (Game.key.up && this.canClimbUp) {
+                else if (this.commands.up && this.canClimbUp) {
                     this.finishMove(this.climbUp);
                 }
-                else if (Game.key.down && this.canClimbDown) {
+                else if (this.commands.down && this.canClimbDown) {
                     this.finishMove(this.climbDown);
                 }
-                else if (!Game.key.right || !this.canMoveRight) {
+                else if (!this.commands.right || !this.canMoveRight) {
                     this.finishMove(this.stand);
                 }
                 break;
@@ -288,13 +309,13 @@ const Player = {
                 }
                 break;
             case "hanging":
-                if (Game.key.down) {
+                if (this.commands.down) {
                     this.fall();
                 }
-                else if (Game.key.left && this.canMoveLeft) {
+                else if (this.commands.left && this.canMoveLeft) {
                     this.hangLeft();
                 }
-                else if (Game.key.right && this.canMoveRight) {
+                else if (this.commands.right && this.canMoveRight) {
                     this.hangRight();
                 }
                 break;
@@ -305,16 +326,16 @@ const Player = {
                 else if (!this.canHang) {
                     this.finishMove(this.fall);
                 }
-                else if (Game.key.right && this.canMoveRight) {
+                else if (this.commands.right && this.canMoveRight) {
                     this.hangRight();
                 }
-                else if (Game.key.up && this.canClimbUp) {
+                else if (this.commands.up && this.canClimbUp) {
                     this.finishMove(this.climbUp);
                 }
-                else if (Game.key.down && this.canClimbDown) {
+                else if (this.commands.down && this.canClimbDown) {
                     this.finishMove(this.climbDown);
                 }
-                else if (!Game.key.left || !this.canMoveLeft) {
+                else if (!this.commands.left || !this.canMoveLeft) {
                     this.finishMove(this.hang);
                 }
                 break;
@@ -325,61 +346,61 @@ const Player = {
                 else if (!this.canHang) {
                     this.finishMove(this.fall);
                 }
-                else if (Game.key.left && this.canMoveLeft) {
+                else if (this.commands.left && this.canMoveLeft) {
                     this.hangLeft();
                 }
-                else if (Game.key.up && this.canClimbUp) {
+                else if (this.commands.up && this.canClimbUp) {
                     this.finishMove(this.climbUp);
                 }
-                else if (Game.key.down && this.canClimbDown) {
+                else if (this.commands.down && this.canClimbDown) {
                     this.finishMove(this.climbDown);
                 }
-                else if (!Game.key.right || !this.canMoveRight) {
+                else if (!this.commands.right || !this.canMoveRight) {
                     this.finishMove(this.hang);
                 }
                 break;
             case "ladder":
-                if (Game.key.left && this.canMoveLeft) {
+                if (this.commands.left && this.canMoveLeft) {
                     this.runLeft();
                 }
-                else if (Game.key.right && this.canMoveRight) {
+                else if (this.commands.right && this.canMoveRight) {
                     this.runRight();
                 }
-                else if (Game.key.up && this.canClimbUp) {
+                else if (this.commands.up && this.canClimbUp) {
                     this.climbUp();
                 }
-                else if (Game.key.down && this.canClimbDown) {
+                else if (this.commands.down && this.canClimbDown) {
                     this.climbDown();
                 }
-                else if (Game.key.down && !this.canStand) {
+                else if (this.commands.down && !this.canStand) {
                     this.fall();
                 }
                 break;
             case "climbing-up":
-                if (Game.key.left && this.canMoveLeft) {
+                if (this.commands.left && this.canMoveLeft) {
                     this.finishMove(this.runLeft);
                 }
-                else if (Game.key.right && this.canMoveRight) {
+                else if (this.commands.right && this.canMoveRight) {
                     this.finishMove(this.runRight);
                 }
-                else if (Game.key.down && this.canClimbDown) {
+                else if (this.commands.down && this.canClimbDown) {
                     this.climbDown();
                 }
                 else if (this.canHang) {
                     this.finishMove(this.hang);
                 }
-                else if (!Game.key.up || !this.canClimbUp) {
+                else if (!this.commands.up || !this.canClimbUp) {
                     this.finishMove(this.stand);
                 }
                 break;
             case "climbing-down":
-                if (Game.key.left && this.canMoveLeft) {
+                if (this.commands.left && this.canMoveLeft) {
                     this.finishMove(this.runLeft);
                 }
-                else if (Game.key.right && this.canMoveRight) {
+                else if (this.commands.right && this.canMoveRight) {
                     this.finishMove(this.runRight);
                 }
-                else if (Game.key.up && this.canClimbUp) {
+                else if (this.commands.up && this.canClimbUp) {
                     this.climbUp();
                 }
                 else if (this.canHang) {
@@ -388,7 +409,7 @@ const Player = {
                 else if (!this.canClimbUp && !this.canClimbDown && !this.canStand) {
                     this.finishMove(this.fall);
                 }
-                else if (!Game.key.down || !this.canClimbDown) {
+                else if (!this.commands.down || !this.canClimbDown) {
                     this.finishMove(this.stand);
                 }
                 break;
@@ -398,7 +419,7 @@ const Player = {
 
 const Game = {
     init(board) {
-        this.board = board;
+        this.board = board.map(row => row.split(""));
 
         this.renderer = PIXI.autoDetectRenderer(BOARD_WIDTH_TL * TILE_WIDTH_PX, BOARD_HEIGHT_TL * TILE_HEIGHT_PX);
         document.body.appendChild(this.renderer.view);
@@ -407,19 +428,17 @@ const Game = {
 
         Object.values(SYMBOLS).forEach(name => PIXI.loader.add(`assets/${name}.png`));
         PIXI.loader.load(() => this.setup());
-
-        this.key = {
-            left: false,
-            right: false,
-            up: false,
-            down: false
-        };
     },
 
     setup() {
+        this.tiles = [];
+
         // For each tile
         this.board.forEach((row, ytl) => {
-            row.split("").forEach((symbol, xtl) => {
+            const tileRow = [];
+            this.tiles.push(tileRow);
+
+            row.forEach((symbol, xtl) => {
                 if (symbol in SYMBOLS) {
                     // Create a sprite for the current symbol
                     const spriteName = SYMBOLS[symbol];
@@ -434,7 +453,14 @@ const Game = {
                     // Keep a reference to the human sprite
                     if (spriteName === "human") {
                         this.player = Object.create(Player).init(sprite);
+                        tileRow.push(null);
                     }
+                    else {
+                        tileRow.push(sprite);
+                    }
+                }
+                else {
+                    tileRow.push(null);
                 }
            });
        });
@@ -449,17 +475,22 @@ const Game = {
     },
 
     onKeyChange(evt, down) {
-        switch (evt.keyCode) {
-            case 37: this.key.left  = down; break;
-            case 38: this.key.up    = down; break;
-            case 39: this.key.right = down; break;
-            case 40: this.key.down  = down; break;
+        for (let key in KEYS) {
+            if (KEYS[key] === evt.keyCode) {
+                this.player.commands[key] = down;
+                return;
+            }
         }
     },
 
     update() {
         this.player.update();
         this.renderer.render(this.stage);
+    },
+
+    removeTile(y, x) {
+        this.board[y][x] = ' ';
+        this.stage.removeChild(this.tiles[y][x]);
     }
 };
 
