@@ -13,6 +13,7 @@ const GRAVITY                  = TILE_HEIGHT_PX / BOARD_HEIGHT_TL / 18;
 const TILE_HIDE_DELAY_MS       = 5000;
 const MARGIN                   = 4;
 
+// TODO add animation for breaking
 const HUMAN_POS = {
     "standing": [6],
     "running-left": [0, 1, 2, 3, 4, 5],
@@ -58,7 +59,7 @@ const board1 = [
     "%  H%           %H % @  %    %%%%%%    %",
     "%  H%           %H %%%%%%    %    %    %",
     "%  H%           %H           % @  %    %",
-    "%  H%           %H    @      %%%%%%    %",
+    "%  H%           %H  # @      %%%%%%    %",
     "%  H%         %%%%%%%%%%%%%%H          %",
     "%  H%         % %          %H          %",
     "%  H%         % %          %H          %",
@@ -254,7 +255,7 @@ const Player = {
                 if (this.canHang) {
                     this.hang();
                 }
-                else if (!this.canStand) {
+                else if (!this.canStand && !this.canClimbUp) {
                     this.fall();
                 }
                 else if (this.commands.left && this.canMoveLeft) {
@@ -274,7 +275,7 @@ const Player = {
                 if (this.canHang) {
                     this.finishMove(this.hang);
                 }
-                else if (!this.canStand) {
+                else if (!this.canStand && !this.canClimbUp) {
                     this.finishMove(this.fall);
                 }
                 else if (this.commands.right && this.canMoveRight) {
@@ -294,7 +295,7 @@ const Player = {
                 if (this.canHang) {
                     this.finishMove(this.hang);
                 }
-                else if (!this.canStand) {
+                else if (!this.canStand && !this.canClimbUp) {
                     this.finishMove(this.fall);
                 }
                 else if (this.commands.left && this.canMoveLeft) {
@@ -448,6 +449,8 @@ Human.update = function () {
     }
 };
 
+const Robot = Object.create(Player);
+
 const Game = {
     init(board) {
         this.board = board.map(row => row.split(""));
@@ -469,6 +472,7 @@ const Game = {
             textures[spriteName] = PIXI.BaseTexture.fromImage(`assets/${spriteName}.png`);
         }
 
+        this.robots = [];
         this.tiles = [];
 
         // For each tile
@@ -490,12 +494,17 @@ const Game = {
                     this.stage.addChild(sprite);
 
                     // Keep a reference to the human sprite
-                    if (spriteName === "human") {
-                        this.player = Object.create(Human).init(sprite);
-                        tileRow.push(null);
-                    }
-                    else {
-                        tileRow.push(sprite);
+                    switch (spriteName) {
+                        case "human":
+                            this.player = Object.create(Human).init(sprite);
+                            tileRow.push(null);
+                            break;
+                        case "robot":
+                            this.robots.push(Object.create(Robot).init(sprite));
+                            tileRow.push(null);
+                            break;
+                        default:
+                            tileRow.push(sprite);
                     }
                 }
                 else {
@@ -540,6 +549,7 @@ const Game = {
 
     update() {
         this.player.update();
+        this.robots.forEach(r => r.update());
         this.renderer.render(this.stage);
     },
 
