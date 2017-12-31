@@ -8,8 +8,10 @@ const TILE_HEIGHT_PX           = 24;
 const HUMAN_WIDTH_PX           = 21;
 const HUMAN_HEIGHT_PX          = 24;
 const HUMAN_SPEED_PX_PER_FRAME = 2; // Pixels / 60 ms
+const HUMAN_LIVES              = 3;
 const GRAVITY                  = TILE_HEIGHT_PX / BOARD_HEIGHT_TL / 18;
-const TILE_HIDE_DELAY_MS       = 3000;
+const TILE_HIDE_DELAY_MS       = 5000;
+const MARGIN                   = 4;
 
 const HUMAN_POS = {
     "standing": [6],
@@ -31,7 +33,8 @@ const SYMBOLS = {
     "H": "ladder",
     "-": "rope",
     "@": "gift",
-    "X": "human"
+    "X": "human",
+    "#": "robot"
 };
 
 const KEYS = {
@@ -212,6 +215,7 @@ const Player = {
     },
 
     update() {
+        // Animate the sprite.
         this.frameCounter ++;
         if (this.frameCounter % FRAMES_PER_ANIMATION_STEP === 0) {
             // Animate the sprite
@@ -225,23 +229,28 @@ const Player = {
             }
         }
 
+        // Move the sprite.
         if (this.state === "falling") {
             this.vyPix += GRAVITY;
         }
         this.sprite.x += this.vxPix;
         this.sprite.y += this.vyPix;
 
-        if (this.yTile < BOARD_HEIGHT_TL - 1) {
-            if (this.commands.breakLeft && this.xTile > 0 && Game.board[this.yTile + 1][this.xTile - 1] === '%') {
-                Game.breakTile(this.yTile + 1, this.xTile - 1);
-            }
-            if (this.commands.breakRight && this.xTile < BOARD_WIDTH_TL - 1 && Game.board[this.yTile + 1][this.xTile + 1] === '%') {
-                Game.breakTile(this.yTile + 1, this.xTile + 1);
-            }
-        }
-
+        // Compute next state.
         switch (this.state) {
             case "standing":
+                // Perform break-left, break-right actions.
+                // TODO Create properties canBreakLeft, canBreakRight
+                // TODO Create states breaking-left, breaking-right
+                if (this.yTile < BOARD_HEIGHT_TL - 1) {
+                    if (this.commands.breakLeft && this.xTile > 0 && Game.board[this.yTile + 1][this.xTile - 1] === '%') {
+                        Game.breakBrick(this.yTile + 1, this.xTile - 1);
+                    }
+                    if (this.commands.breakRight && this.xTile < BOARD_WIDTH_TL - 1 && Game.board[this.yTile + 1][this.xTile + 1] === '%') {
+                        Game.breakBrick(this.yTile + 1, this.xTile + 1);
+                    }
+                }
+
                 if (this.canHang) {
                     this.hang();
                 }
@@ -418,11 +427,32 @@ const Player = {
     }
 };
 
+const Human = Object.create(Player);
+
+Human.init = function (sprite) {
+    Player.init.call(this, sprite);
+    this.score = 0;
+    return this;
+};
+
+Human.update = function () {
+    Player.update.call(this);
+
+    // Collect gifts
+    if (Game.board[this.yTile][this.xTile] === '@') {
+        Game.board[this.yTile][this.xTile] = ' ';
+        let tile = Game.tiles[this.yTile][this.xTile];
+        tile.x = (BOARD_WIDTH_TL  - 0.5) * TILE_WIDTH_PX - this.score * (TILE_WIDTH_PX + MARGIN) - MARGIN;
+        tile.y = (BOARD_HEIGHT_TL + 0.5) * TILE_HEIGHT_PX + MARGIN;
+        this.score ++;
+    }
+};
+
 const Game = {
     init(board) {
         this.board = board.map(row => row.split(""));
 
-        this.renderer = PIXI.autoDetectRenderer(BOARD_WIDTH_TL * TILE_WIDTH_PX, BOARD_HEIGHT_TL * TILE_HEIGHT_PX);
+        this.renderer = PIXI.autoDetectRenderer(BOARD_WIDTH_TL * TILE_WIDTH_PX, (BOARD_HEIGHT_TL + 1) * TILE_HEIGHT_PX + 2 * MARGIN);
         document.body.appendChild(this.renderer.view);
 
         this.stage = new PIXI.Container();
@@ -432,6 +462,13 @@ const Game = {
     },
 
     setup() {
+        // Load textures.
+        let textures = {};
+        for (let symbol in SYMBOLS) {
+            const spriteName = SYMBOLS[symbol];
+            textures[spriteName] = PIXI.BaseTexture.fromImage(`assets/${spriteName}.png`);
+        }
+
         this.tiles = [];
 
         // For each tile
@@ -443,7 +480,8 @@ const Game = {
                 if (symbol in SYMBOLS) {
                     // Create a sprite for the current symbol
                     const spriteName = SYMBOLS[symbol];
-                    const sprite = new PIXI.Sprite(PIXI.loader.resources[`assets/${spriteName}.png`].texture)
+                    const texture = new PIXI.Texture(textures[spriteName]);
+                    const sprite = new PIXI.Sprite(texture);
 
                     // Center the sprite in the current tile
                     sprite.anchor.x = sprite.anchor.y = 0.5;
@@ -453,7 +491,7 @@ const Game = {
 
                     // Keep a reference to the human sprite
                     if (spriteName === "human") {
-                        this.player = Object.create(Player).init(sprite);
+                        this.player = Object.create(Human).init(sprite);
                         tileRow.push(null);
                     }
                     else {
@@ -464,6 +502,20 @@ const Game = {
                     tileRow.push(null);
                 }
            });
+
+           // Show remaining lives at the bottom of the screen.
+           this.lifeSprites = [];
+           const frame = new PIXI.Rectangle(HUMAN_POS.standing[0] * HUMAN_WIDTH_PX + 0.5, 0, HUMAN_WIDTH_PX - 1, HUMAN_HEIGHT_PX)
+           const texture = new PIXI.Texture(textures.human, frame);
+           for (let i = 0; i < HUMAN_LIVES; i ++) {
+               const sprite = new PIXI.Sprite(texture);
+               sprite.anchor.x = sprite.anchor.y = 0.5;
+               sprite.x = (i               + 0.5) * TILE_WIDTH_PX  + MARGIN;
+               sprite.y = (BOARD_HEIGHT_TL + 0.5) * TILE_HEIGHT_PX + MARGIN;
+               this.stage.addChild(sprite);
+
+               this.lifeSprites.push(sprite);
+           }
        });
 
        this.loop();
@@ -479,6 +531,8 @@ const Game = {
         for (let key in KEYS) {
             if (KEYS[key] === evt.keyCode) {
                 this.player.commands[key] = down;
+                evt.preventDefault();
+                evt.stopPropagation();
                 return;
             }
         }
@@ -489,18 +543,24 @@ const Game = {
         this.renderer.render(this.stage);
     },
 
-    breakTile(y, x) {
+    removeTile(y, x) {
         let symbol = this.board[y][x];
         let tile = this.tiles[y][x];
 
         // Remove the current tile.
         this.board[y][x] = ' ';
-        this.stage.removeChild(tile);
+        tile.visible = false;
+
+        return [symbol, tile];
+    },
+
+    breakBrick(y, x) {
+        let [symbol, tile] = this.removeTile(y, x);
 
         // Show it again after a given delay.
         window.setTimeout(() => {
             this.board[y][x] = symbol;
-            this.stage.addChild(tile);
+            tile.visible = true;
             // TODO if character at this location, move it up.
         }, TILE_HIDE_DELAY_MS);
     }
