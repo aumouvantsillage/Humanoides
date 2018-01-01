@@ -137,6 +137,14 @@ const Player = {
         return this.yTile < BOARD_HEIGHT_TL - 1 && Game.board[this.yTile + 1][this.xTile] === 'H';
     },
 
+    get canBreakLeft() {
+        return this.yTile < BOARD_HEIGHT_TL - 1 && this.xTile > 0 && Game.board[this.yTile + 1][this.xTile - 1] === '%';
+    },
+
+    get canBreakRight() {
+        return this.yTile < BOARD_HEIGHT_TL - 1 && this.xTile < BOARD_WIDTH_TL - 1 && Game.board[this.yTile + 1][this.xTile + 1] === '%';
+    },
+
     stand() {
         if (this.canClimbUp) {
             this.state = "ladder";
@@ -223,6 +231,21 @@ const Player = {
         }
     },
 
+    moveToEmptyLocation(y, x) {
+        const positions = [ [y - 1, x], [y, x - 1], [y, x + 1], [y + 1, x]];
+
+        for (let p of positions) {
+            if (p[0] >= 0 && p[0] < BOARD_HEIGHT_TL &&
+                p[1] >= 0 && p[1] < BOARD_WIDTH_TL  &&
+                Game.board[p[0]][p[1]] !== '%') {
+                this.yTile = p[0];
+                this.xTile = p[1];
+                this.stand();
+                break;
+            }
+        }
+    },
+
     update() {
         // Animate the sprite.
         this.frameCounter ++;
@@ -248,19 +271,13 @@ const Player = {
         // Compute next state.
         switch (this.state) {
             case "standing":
-                // Perform break-left, break-right actions.
-                // TODO Create properties canBreakLeft, canBreakRight
-                // TODO Create states breaking-left, breaking-right
-                if (this.yTile < BOARD_HEIGHT_TL - 1) {
-                    if (this.commands.breakLeft && this.xTile > 0 && Game.board[this.yTile + 1][this.xTile - 1] === '%') {
-                        Game.breakBrick(this.yTile + 1, this.xTile - 1);
-                    }
-                    if (this.commands.breakRight && this.xTile < BOARD_WIDTH_TL - 1 && Game.board[this.yTile + 1][this.xTile + 1] === '%') {
-                        Game.breakBrick(this.yTile + 1, this.xTile + 1);
-                    }
+                if (this.commands.breakLeft && this.canBreakLeft) {
+                    Game.breakBrick(this.yTile + 1, this.xTile - 1);
                 }
-
-                if (this.canHang) {
+                else if (this.commands.breakRight && this.canBreakRight) {
+                    Game.breakBrick(this.yTile + 1, this.xTile + 1);
+                }
+                else if (this.canHang) {
                     this.hang();
                 }
                 else if (!this.canStand && !this.canClimbUp) {
@@ -379,7 +396,13 @@ const Player = {
                 }
                 break;
             case "ladder":
-                if (this.commands.left && this.canMoveLeft) {
+                if (this.commands.breakLeft && this.canBreakLeft) {
+                    Game.breakBrick(this.yTile + 1, this.xTile - 1);
+                }
+                else if (this.commands.breakRight && this.canBreakRight) {
+                    Game.breakBrick(this.yTile + 1, this.xTile + 1);
+                }
+                else if (this.commands.left && this.canMoveLeft) {
                     this.runLeft();
                 }
                 else if (this.commands.right && this.canMoveRight) {
@@ -458,6 +481,30 @@ Human.update = function () {
 };
 
 const Robot = Object.create(Player);
+
+Robot.update = function () {
+    this.commands = {
+        left: false,
+        right: false,
+        top: false,
+        bottom: false
+    };
+
+    if (Game.player.xTile > this.xTile && (this.canStand || this.canHang) && this.canMoveRight) {
+        this.commands.right = true;
+    }
+    if (Game.player.xTile < this.xTile && (this.canStand || this.canHang) && this.canMoveLeft) {
+        this.commands.left = true;
+    }
+    if (Game.player.yTile > this.yTile && this.canClimbDown) {
+        this.commands.down = true;
+    }
+    if (Game.player.yTile < this.yTile && this.canClimbUp) {
+        this.commands.up = true;
+    }
+
+    Player.update.call(this);
+};
 
 const Game = {
     init(board) {
@@ -581,12 +628,12 @@ const Game = {
             tile.visible = true;
 
             if (this.player.xTile === x && this.player.yTile === y) {
-                this.player.yTile --;
+                this.player.moveToEmptyLocation(y, x);
             }
 
             this.robots.forEach(r => {
                 if (r.xTile === x && r.yTile === y) {
-                    r.yTile --;
+                    r.moveToEmptyLocation(y, x);
                 }
             });
         }, TILE_HIDE_DELAY_MS);
