@@ -91,8 +91,16 @@ const Player = {
         return Math.floor(this.sprite.x / TILE_WIDTH_PX);
     },
 
+    set xTile(x) {
+        this.sprite.x = (x + 0.5) * TILE_WIDTH_PX;
+    },
+
     get yTile() {
         return Math.floor(this.sprite.y / TILE_HEIGHT_PX);
+    },
+
+    set yTile(y) {
+        this.sprite.y = (y + 0.5) * TILE_HEIGHT_PX;
     },
 
     get xPix() {
@@ -571,7 +579,16 @@ const Game = {
         window.setTimeout(() => {
             this.board[y][x] = symbol;
             tile.visible = true;
-            // TODO if character at this location, move it up.
+
+            if (this.player.xTile === x && this.player.yTile === y) {
+                this.player.yTile --;
+            }
+
+            this.robots.forEach(r => {
+                if (r.xTile === x && r.yTile === y) {
+                    r.yTile --;
+                }
+            });
         }, TILE_HIDE_DELAY_MS);
     }
 };
