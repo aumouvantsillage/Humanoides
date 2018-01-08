@@ -6,7 +6,7 @@ export const Human = Object.create(Player);
 Human.update = function () {
     Player.update.call(this);
 
-    if (this.board.rows[this.yTile][this.xTile] === '@') {
+    if (this.board.getTileType(this.xTile, this.yTile) === "gift") {
         this.board.collectGift(this.closestGift);
     }
 };

@@ -158,7 +158,15 @@ export const Board = {
         return (y + 0.5) * TILE_HEIGHT_PX;
     },
 
-    removeTile(y, x) {
+    getTileType(x, y) {
+        const symbol = this.rows[y][x];
+        if (symbol in SYMBOLS) {
+            return SYMBOLS[symbol];
+        }
+        return "empty";
+    },
+
+    removeTile(x, y) {
         let symbol = this.rows[y][x];
         let tile = this.tiles[y][x];
 
@@ -169,8 +177,8 @@ export const Board = {
         return [symbol, tile];
     },
 
-    breakBrick(y, x) {
-        let [symbol, tile] = this.removeTile(y, x);
+    breakBrick(x, y) {
+        let [symbol, tile] = this.removeTile(x, y);
 
         // Show it again after a given delay.
         window.setTimeout(() => {
@@ -178,12 +186,12 @@ export const Board = {
             tile.visible = true;
 
             if (this.player.xTile === x && this.player.yTile === y) {
-                this.player.moveToEmptyLocation(y, x);
+                this.player.moveToEmptyLocation(x, y);
             }
 
             this.robots.forEach(r => {
                 if (r.xTile === x && r.yTile === y) {
-                    r.moveToEmptyLocation(y, x);
+                    r.moveToEmptyLocation(x, y);
                 }
             });
         }, TILE_HIDE_DELAY_MS);

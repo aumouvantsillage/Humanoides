@@ -79,37 +79,37 @@ export const Player = {
     },
 
     get canMoveLeft() {
-        return this.xTile > 0 && this.board.rows[this.yTile][this.xTile - 1] !== '%';
+        return this.xTile > 0 && this.board.getTileType(this.xTile - 1, this.yTile) !== "brick";
     },
 
     get canMoveRight() {
-        return this.xTile < this.board.widthTiles - 1 && this.board.rows[this.yTile][this.xTile + 1] !== '%';
+        return this.xTile < this.board.widthTiles - 1 && this.board.getTileType(this.xTile + 1, this.yTile) !== "brick";
     },
 
     get canStand() {
         return this.yTile == this.board.heightTiles - 1 ||
-               this.board.rows[this.yTile + 1][this.xTile] === '%' ||
-               this.board.rows[this.yTile + 1][this.xTile] === 'H';
+               this.board.getTileType(this.xTile, this.yTile + 1) === "brick" ||
+               this.board.getTileType(this.xTile, this.yTile + 1) === "ladder";
     },
 
     get canHang() {
-        return this.board.rows[this.yTile][this.xTile] === '-';
+        return this.board.getTileType(this.xTile, this.yTile) === "rope";
     },
 
     get canClimbUp() {
-        return this.board.rows[this.yTile][this.xTile] === 'H';
+        return this.board.getTileType(this.xTile, this.yTile) === "ladder";
     },
 
     get canClimbDown() {
-        return this.yTile < this.board.heightTiles - 1 && this.board.rows[this.yTile + 1][this.xTile] === 'H';
+        return this.yTile < this.board.heightTiles - 1 && this.board.getTileType(this.xTile, this.yTile + 1) === "ladder";
     },
 
     get canBreakLeft() {
-        return this.yTile < this.board.heightTiles - 1 && this.xTile > 0 && this.board.rows[this.yTile + 1][this.xTile - 1] === '%';
+        return this.yTile < this.board.heightTiles - 1 && this.xTile > 0 && this.board.getTileType(this.xTile - 1, this.yTile + 1) === "brick";
     },
 
     get canBreakRight() {
-        return this.yTile < this.board.heightTiles - 1 && this.xTile < this.board.widthTiles - 1 && this.board.rows[this.yTile + 1][this.xTile + 1] === '%';
+        return this.yTile < this.board.heightTiles - 1 && this.xTile < this.board.widthTiles - 1 && this.board.getTileType(this.xTile + 1, this.yTile + 1) === "brick";
     },
 
     stand() {
@@ -198,13 +198,13 @@ export const Player = {
         }
     },
 
-    moveToEmptyLocation(y, x) {
+    moveToEmptyLocation(x, y) {
         const positions = [ [y - 1, x], [y, x - 1], [y, x + 1], [y + 1, x]];
 
         for (let p of positions) {
             if (p[0] >= 0 && p[0] < this.board.heightTiles &&
                 p[1] >= 0 && p[1] < this.board.widthTiles  &&
-                this.board.rows[p[0]][p[1]] !== '%') {
+                this.board.getTileType(p[1], p[0]) !== "brick") {
                 this.yTile = p[0];
                 this.xTile = p[1];
                 this.stand();
@@ -239,10 +239,10 @@ export const Player = {
         switch (this.state) {
             case "standing":
                 if (this.commands.breakLeft && this.canBreakLeft) {
-                    this.board.breakBrick(this.yTile + 1, this.xTile - 1);
+                    this.board.breakBrick(this.xTile - 1, this.yTile + 1);
                 }
                 else if (this.commands.breakRight && this.canBreakRight) {
-                    this.board.breakBrick(this.yTile + 1, this.xTile + 1);
+                    this.board.breakBrick(this.xTile + 1, this.yTile + 1);
                 }
                 else if (this.canHang) {
                     this.hang();
@@ -364,10 +364,10 @@ export const Player = {
                 break;
             case "ladder":
                 if (this.commands.breakLeft && this.canBreakLeft) {
-                    this.board.breakBrick(this.yTile + 1, this.xTile - 1);
+                    this.board.breakBrick(this.xTile - 1, this.yTile + 1);
                 }
                 else if (this.commands.breakRight && this.canBreakRight) {
-                    this.board.breakBrick(this.yTile + 1, this.xTile + 1);
+                    this.board.breakBrick(this.xTile + 1, this.yTile + 1);
                 }
                 else if (this.commands.left && this.canMoveLeft) {
                     this.runLeft();
