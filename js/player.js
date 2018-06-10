@@ -65,51 +65,39 @@ export const Player = {
     },
 
     get closestGift() {
-        let result = {x: this.xTile, y: this.yTile, index: -1};
-        let dmin = this.board.widthTiles + this.board.heightTiles;
-        this.board.gifts.forEach((loc, index) => {
-            // Use the Manhattan distance.
-            const d = Math.abs(loc.x - this.xTile) + Math.abs(loc.y - this.yTile);
-            if (d < dmin) {
-                result = {x: loc.x, y: loc.y, index};
-                dmin = d;
-            }
-        });
-        return result;
+        return this.board.getClosestGift(this.xTile, this.yTile);
     },
 
     get canMoveLeft() {
-        return this.xTile > 0 && this.board.getTileType(this.xTile - 1, this.yTile) !== "brick";
+        return this.board.canMoveLeft(this.xTile, this.yTile);
     },
 
     get canMoveRight() {
-        return this.xTile < this.board.widthTiles - 1 && this.board.getTileType(this.xTile + 1, this.yTile) !== "brick";
+        return this.board.canMoveRight(this.xTile, this.yTile);
     },
 
     get canStand() {
-        return this.yTile == this.board.heightTiles - 1 ||
-               this.board.getTileType(this.xTile, this.yTile + 1) === "brick" ||
-               this.board.getTileType(this.xTile, this.yTile + 1) === "ladder";
+        return this.board.canStand(this.xTile, this.yTile);
     },
 
     get canHang() {
-        return this.board.getTileType(this.xTile, this.yTile) === "rope";
+        return this.board.canHang(this.xTile, this.yTile);
     },
 
     get canClimbUp() {
-        return this.board.getTileType(this.xTile, this.yTile) === "ladder";
+        return this.board.canClimbUp(this.xTile, this.yTile);
     },
 
     get canClimbDown() {
-        return this.yTile < this.board.heightTiles - 1 && this.board.getTileType(this.xTile, this.yTile + 1) === "ladder";
+        return this.board.canClimbDown(this.xTile, this.yTile);
     },
 
     get canBreakLeft() {
-        return this.yTile < this.board.heightTiles - 1 && this.xTile > 0 && this.board.getTileType(this.xTile - 1, this.yTile + 1) === "brick";
+        return this.board.canBreakLeft(this.xTile, this.yTile);
     },
 
     get canBreakRight() {
-        return this.yTile < this.board.heightTiles - 1 && this.xTile < this.board.widthTiles - 1 && this.board.getTileType(this.xTile + 1, this.yTile + 1) === "brick";
+        return this.board.canBreakRight(this.xTile, this.yTile);
     },
 
     stand() {

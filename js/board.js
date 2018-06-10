@@ -20,12 +20,12 @@ const SYMBOLS = {
 };
 
 const KEYS = {
-    left:       37,
-    up:         38,
-    right:      39,
-    down:       40,
-    breakLeft:  87, // W
-    breakRight: 88  // X
+    left:       ["ArrowLeft"],
+    up:         ["ArrowUp"],
+    right:      ["ArrowRight"],
+    down:       ["ArrowDown"],
+    breakLeft:  ["s", "S"],
+    breakRight: ["d", "D"]
 };
 
 export const Board = {
@@ -34,6 +34,7 @@ export const Board = {
         this.widthTiles = Math.max(...this.rows.map(r => r.length));
         this.heightTiles = this.rows.length;
         this.gifts = [];
+        this.hintMaps = [];
         this.gravity = TILE_HEIGHT_PX / this.heightTiles / 18;
 
         this.renderer = PIXI.autoDetectRenderer(this.widthTiles * TILE_WIDTH_PX, (this.heightTiles + 1) * TILE_HEIGHT_PX + 2 * MARGIN);
@@ -87,7 +88,7 @@ export const Board = {
                             tileRow.push(null);
                             break;
                         case "gift":
-                            this.gifts.push({x: xtl, y: ytl});
+                            this.gifts.push({x: xtl, y: ytl, collected: false});
                             tileRow.push(sprite);
                             break;
                         default:
@@ -113,10 +114,41 @@ export const Board = {
            }
        });
 
+       this.remainingGifts = this.gifts.length;
+
+       this.setupHintMaps();
+
        window.addEventListener("keydown", (evt) => this.onKeyChange(evt, true));
        window.addEventListener("keyup", (evt)   => this.onKeyChange(evt, false));
 
        this.loop();
+   },
+
+   setupHintMaps() {
+       // TODO create hintMaps using a path-finding algorithm.
+       this.hintMaps = this.gifts.map(({x, y}) => {
+           // Create an empty map
+           let m = this.rows.map((r, yt) => r.map((c, xt) => {
+               if (!this.canStand(xt, yt)) {
+                   return 'F';
+               }
+               if (x > xt && (this.canStand(xt, yt) || this.canHang(xt, yt)) && this.canMoveRight(xt, yt)) {
+                   return 'R';
+               }
+               if (x < xt && (this.canStand(xt, yt) || this.canHang(xt, yt)) && this.canMoveLeft(xt, yt)) {
+                   return 'L';
+               }
+               if (y > yt && this.canClimbDown(xt, yt)) {
+                   return 'D';
+               }
+               if (y < yt && this.canClimbUp(xt, yt)) {
+                   return 'U';
+               }
+               return 'X';
+           }));
+           console.log(m);
+           return m;
+       });
    },
 
    loop() {
@@ -127,7 +159,7 @@ export const Board = {
 
     onKeyChange(evt, down) {
         for (let key in KEYS) {
-            if (KEYS[key] === evt.keyCode) {
+            if (KEYS[key].indexOf(evt.key) >= 0) {
                 this.player.commands[key] = down;
                 evt.preventDefault();
                 evt.stopPropagation();
@@ -166,6 +198,64 @@ export const Board = {
         return "empty";
     },
 
+    getClosestGift(x, y) {
+        // TODO use hintMaps to find the closest gift.
+        let result = null;
+        let dmin = this.widthTiles + this.heightTiles;
+        this.gifts.filter(g => !g.collected).forEach(g => {
+            // Use the Manhattan distance.
+            const d = Math.abs(g.x - x) + Math.abs(g.y - y);
+            if (d < dmin) {
+                result = g;
+                dmin = d;
+            }
+        });
+        return result;
+    },
+
+    getHint(x, y) {
+        const gift = this.player.closestGift;
+        if (!gift) {
+            return 'X';
+        }
+        const hintMap = this.hintMaps[this.gifts.indexOf(gift)];
+        return hintMap[y][x];
+    },
+
+    canMoveLeft(x, y) {
+        return x > 0 && this.getTileType(x - 1, y) !== "brick";
+    },
+
+    canMoveRight(x, y) {
+        return x < this.widthTiles - 1 && this.getTileType(x + 1, y) !== "brick";
+    },
+
+    canStand(x, y) {
+        return y == this.heightTiles - 1 ||
+               this.getTileType(x, y + 1) === "brick" ||
+               this.getTileType(x, y + 1) === "ladder";
+    },
+
+    canHang(x, y) {
+        return this.getTileType(x, y) === "rope";
+    },
+
+    canClimbUp(x, y) {
+        return this.getTileType(x, y) === "ladder";
+    },
+
+    canClimbDown(x, y) {
+        return y < this.heightTiles - 1 && this.getTileType(x, y + 1) === "ladder";
+    },
+
+    canBreakLeft(x, y) {
+        return y < this.heightTiles - 1 && x > 0 && this.getTileType(x - 1, y + 1) === "brick";
+    },
+
+    canBreakRight(x, y) {
+        return y < this.heightTiles - 1 && x < this.widthTiles - 1 && this.getTileType(x + 1, y + 1) === "brick";
+    },
+
     removeTile(x, y) {
         let symbol = this.rows[y][x];
         let tile = this.tiles[y][x];
@@ -197,11 +287,12 @@ export const Board = {
         }, TILE_HIDE_DELAY_MS);
     },
 
-    collectGift({x, y, index}) {
-        this.gifts.splice(index, 1);
-        this.rows[y][x] = ' ';
-        let tile = this.tiles[y][x];
-        tile.x = (this.widthTiles  - 0.5) * TILE_WIDTH_PX - this.gifts.length * (TILE_WIDTH_PX + MARGIN) - MARGIN;
+    collectGift(g) {
+        g.collected = true;
+        this.remainingGifts --;
+        this.rows[g.y][g.x] = ' ';
+        let tile = this.tiles[g.y][g.x];
+        tile.x = (this.widthTiles  - 0.5) * TILE_WIDTH_PX - this.remainingGifts * (TILE_WIDTH_PX + MARGIN) - MARGIN;
         tile.y = (this.heightTiles + 0.5) * TILE_HEIGHT_PX + MARGIN;
     }
 };
