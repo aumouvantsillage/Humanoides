@@ -64,8 +64,8 @@ export const Player = {
         return this.sprite.y;
     },
 
-    get closestGift() {
-        return this.board.getClosestGift(this.xTile, this.yTile);
+    get nearestGift() {
+        return this.board.getNearestGift(this.xTile, this.yTile);
     },
 
     get canMoveLeft() {

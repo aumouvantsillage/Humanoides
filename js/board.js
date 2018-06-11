@@ -35,6 +35,7 @@ export const Board = {
         this.heightTiles = this.rows.length;
         this.gifts = [];
         this.hintMaps = [];
+        this.distanceMaps = [];
         this.gravity = TILE_HEIGHT_PX / this.heightTiles / 18;
 
         this.renderer = PIXI.autoDetectRenderer(this.widthTiles * TILE_WIDTH_PX, (this.heightTiles + 1) * TILE_HEIGHT_PX + 2 * MARGIN);
@@ -117,6 +118,7 @@ export const Board = {
        this.remainingGifts = this.gifts.length;
 
        this.setupHintMaps();
+       this.setupDistanceMaps();
 
        window.addEventListener("keydown", (evt) => this.onKeyChange(evt, true));
        window.addEventListener("keyup", (evt)   => this.onKeyChange(evt, false));
@@ -127,8 +129,7 @@ export const Board = {
    setupHintMaps() {
        // TODO create hintMaps using a path-finding algorithm.
        this.hintMaps = this.gifts.map(({x, y}) => {
-           // Create an empty map
-           let m = this.rows.map((r, yt) => r.map((c, xt) => {
+           return this.rows.map((r, yt) => r.map((c, xt) => {
                if (!this.canStand(xt, yt)) {
                    return 'F';
                }
@@ -146,9 +147,17 @@ export const Board = {
                }
                return 'X';
            }));
-           console.log(m);
-           return m;
        });
+   },
+
+   setupDistanceMaps() {
+       // TODO use hintMaps to compute distance
+       this.distanceMaps = this.gifts.map(({x, y}) => {
+           return this.rows.map((r, yt) => r.map((c, xt) => {
+               // Use the Manhattan distance.
+               return Math.abs(x - xt) + Math.abs(y - yt);
+           }));
+       })
    },
 
    loop() {
@@ -198,23 +207,19 @@ export const Board = {
         return "empty";
     },
 
-    getClosestGift(x, y) {
-        // TODO use hintMaps to find the closest gift.
-        let result = null;
-        let dmin = this.widthTiles + this.heightTiles;
-        this.gifts.filter(g => !g.collected).forEach(g => {
-            // Use the Manhattan distance.
-            const d = Math.abs(g.x - x) + Math.abs(g.y - y);
-            if (d < dmin) {
-                result = g;
-                dmin = d;
-            }
+    getDistanceToGift(x, y, g) {
+        return this.distanceMaps[this.gifts.indexOf(g)][y][x];
+    },
+
+    getNearestGift(x, y) {
+        return this.gifts.filter(g => !g.collected).reduce((a, b) => {
+            return this.getDistanceToGift(x, y, a) < this.getDistanceToGift(x, y, b) ?
+                a : b;
         });
-        return result;
     },
 
     getHint(x, y) {
-        const gift = this.player.closestGift;
+        const gift = this.player.nearestGift;
         if (!gift) {
             return 'X';
         }

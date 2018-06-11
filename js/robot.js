@@ -11,7 +11,7 @@ Robot.update = function () {
         bottom: false
     };
 
-    // The robot will move towards the gift closest to the player.
+    // The robot will move towards the gift nearest to the player.
     switch (this.board.getHint(this.xTile, this.yTile)) {
         case 'R': this.commands.right = true; break;
         case 'L': this.commands.left = true; break;

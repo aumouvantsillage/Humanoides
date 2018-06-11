@@ -7,6 +7,6 @@ Human.update = function () {
     Player.update.call(this);
 
     if (this.board.getTileType(this.xTile, this.yTile) === "gift") {
-        this.board.collectGift(this.closestGift);
+        this.board.collectGift(this.nearestGift);
     }
 };

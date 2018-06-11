@@ -34,5 +34,5 @@ window.addEventListener("load", () => Board.init(board1));
 //      => Each map cell indicates the movement to perform
 //      => Consider that humans can pass through bricks downwards
 //      => Consider that falling is cheaper than climbing down
-// Compute Player.closestGift based on maps.
-// Robots follow map to Game.player.closestGift.
+// Compute Player.nearestGift based on maps.
+// Robots follow map to Game.player.nearestGift.
