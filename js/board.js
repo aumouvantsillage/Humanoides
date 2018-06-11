@@ -127,26 +127,96 @@ export const Board = {
    },
 
    setupHintMaps() {
-       // TODO create hintMaps using a path-finding algorithm.
-       this.hintMaps = this.gifts.map(({x, y}) => {
-           return this.rows.map((r, yt) => r.map((c, xt) => {
-               if (!this.canStand(xt, yt)) {
-                   return 'F';
+       // Initialize the map with empty cells.
+       this.hintMaps = this.gifts.map(g => this.rows.map(r => r.map(c => '?')));
+
+       this.gifts.forEach((g, gi) => {
+           this.hintMaps[gi][g.y][g.x] = '@';
+
+           // Compute the hint map for the current gift.
+           this.hintMaps[gi].forEach((r, y) => r.forEach((c, x) => {
+               // If a path passes by (x, y), move to the next cell.
+               if (c !== '?' || this.getTileType(x, y) === "brick") {
+                   return;
                }
-               if (x > xt && (this.canStand(xt, yt) || this.canHang(xt, yt)) && this.canMoveRight(xt, yt)) {
-                   return 'R';
+
+               // Compute a path from (x, y) to (g.x, g.y) using the A* algorithm.
+               const closedList = [];
+               const openList = [{x, y, cost: 0, distance: 0, prev: null}];
+               let currentNode;
+               while (openList.length) {
+                   // Get the unexplored node with the lowest estimated path length.
+                   currentNode = openList.shift();
+
+                   // If the current node is the target, stop the exploration.
+                   if (currentNode.x === g.x && currentNode.y === g.y) {
+                       break;
+                   }
+
+                   // Add the current node to the list of explored nodes.
+                   closedList.push(currentNode);
+
+                   // Build a list of the neighbors of the current node.
+                   // The list is based on the possible movements of the player at the current location.
+                   const neighbors = [];
+                   function addNeighbor(x, y) {
+                       neighbors.push({x, y, prev: currentNode, cost: currentNode.cost + 1, distance: Math.abs(g.x - x) + Math.abs(g.y - y)})
+                   }
+
+                   if (this.canStand(currentNode.x, currentNode.y) || this.canHang(currentNode.x, currentNode.y)) {
+                       if (this.canMoveRight(currentNode.x, currentNode.y)) {
+                           addNeighbor(currentNode.x + 1, currentNode.y);
+                       }
+                       if (this.canMoveLeft(currentNode.x, currentNode.y)) {
+                           addNeighbor(currentNode.x - 1, currentNode.y);
+                       }
+                       if (this.canClimbDown(currentNode.x, currentNode.y) || this.canHang(currentNode.x, currentNode.y)) {
+                           addNeighbor(currentNode.x, currentNode.y + 1);
+                       }
+                   }
+                   else {
+                       addNeighbor(currentNode.x, currentNode.y + 1);
+                   }
+                   if (this.canClimbUp(currentNode.x, currentNode.y)) {
+                       addNeighbor(currentNode.x, currentNode.y - 1);
+                   }
+
+                   neighbors.forEach(n => {
+                       // If a neighbor has already been explored, ignore it.
+                       if (closedList.some(v => v.x === n.x && v.y === n.y)) {
+                           return;
+                       }
+
+                       // Check if a neighbor is already in the list of nodes to explore.
+                       let other = openList.find(v => v.x === n.x && v.y === n.y);
+                       if (!other) {
+                           // If not, add the current neighbor to the list.
+                           openList.push(n);
+                       }
+                       else if (other.cost > n.cost) {
+                           // If the current neighbor is already in the list of nodes to explore
+                           // and it improves the cost, update the cost and the link to the previous node.
+                           other.cost = n.cost;
+                           other.prev = n.prev;
+                       }
+                   });
+
+                   // Sort the open list by increasing estimated path length.
+                   openList.sort((a, b) => (a.cost + a.distance) - (b.cost + b.distance));
                }
-               if (x < xt && (this.canStand(xt, yt) || this.canHang(xt, yt)) && this.canMoveLeft(xt, yt)) {
-                   return 'L';
+
+               // TODO what if there is no valid path.
+               for (let node = currentNode; node.prev; node = node.prev) {
+                   this.hintMaps[gi][node.prev.y][node.prev.x] =
+                       node.x < node.prev.x ? 'L' :
+                       node.x > node.prev.x ? 'R' :
+                       node.y < node.prev.y ? 'U' :
+                       node.y > node.prev.y && this.canClimbDown(node.prev.x, node.prev.y) ? 'D' : 'F';
                }
-               if (y > yt && this.canClimbDown(xt, yt)) {
-                   return 'D';
-               }
-               if (y < yt && this.canClimbUp(xt, yt)) {
-                   return 'U';
-               }
-               return 'X';
            }));
+
+           console.log("--");
+           this.hintMaps[gi].forEach((r, y) => console.log(r.join("")));
        });
    },
 
