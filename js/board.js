@@ -141,10 +141,6 @@ export const Board = {
 
            // Compute the hint map for the current gift.
            currentMap.forEach((r, y) => r.forEach((c, x) => {
-               if (c.hint !== '?') {
-                   return;
-               }
-
                // Compute a path from (x, y) to (g.x, g.y) using the A* algorithm.
                const closedList = [];
                const openList = [{x, y, cost: 0, distance: 0, prev: null}];
@@ -154,7 +150,7 @@ export const Board = {
                    currentNode = openList.shift();
 
                    // If the current node is the target, stop the exploration.
-                   if (currentNode.x === g.x && currentNode.y === g.y) {
+                   if (currentMap[currentNode.y][currentNode.x].hint != '?' || currentNode.x === g.x && currentNode.y === g.y) {
                        break;
                    }
 
