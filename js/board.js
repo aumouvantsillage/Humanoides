@@ -10,6 +10,10 @@ const MARGIN             = 4;
 const HUMAN_LIVES        = 3;
 const TILE_HIDE_DELAY_MS = 5000;
 
+const FALL_COST = 0.9;
+const HUMAN_BRICK_COST = 3;
+const ROBOT_BRICK_COST = TILE_HEIGHT_PX + TILE_WIDTH_PX;
+
 const SYMBOLS = {
     "%": "brick",
     "H": "ladder",
@@ -34,8 +38,8 @@ export const Board = {
         this.widthTiles = Math.max(...this.rows.map(r => r.length));
         this.heightTiles = this.rows.length;
         this.gifts = [];
-        this.hintMaps = [];
-        this.distanceMaps = [];
+        this.humanHints = [];
+        this.robotHints = [];
         this.gravity = TILE_HEIGHT_PX / this.heightTiles / 18;
 
         this.renderer = PIXI.autoDetectRenderer(this.widthTiles * TILE_WIDTH_PX, (this.heightTiles + 1) * TILE_HEIGHT_PX + 2 * MARGIN);
@@ -117,8 +121,8 @@ export const Board = {
 
        this.remainingGifts = this.gifts.length;
 
-       this.setupHintMaps();
-       this.setupDistanceMaps();
+       this.robotHints = this.computeHintMaps(FALL_COST, ROBOT_BRICK_COST);
+       this.humanHints = this.computeHintMaps(FALL_COST, HUMAN_BRICK_COST);
 
        window.addEventListener("keydown", (evt) => this.onKeyChange(evt, true));
        window.addEventListener("keyup", (evt)   => this.onKeyChange(evt, false));
@@ -126,17 +130,18 @@ export const Board = {
        this.loop();
    },
 
-   setupHintMaps() {
+   computeHintMaps(fallCost, brickCost) {
        // Initialize the map with empty cells.
-       this.hintMaps = this.gifts.map(g => this.rows.map(r => r.map(c => '?')));
+       const result = this.gifts.map(g => this.rows.map(r => r.map(c => ({hint: '?', distance: Infinity}))));
 
        this.gifts.forEach((g, gi) => {
-           this.hintMaps[gi][g.y][g.x] = '@';
+           const currentMap = result[gi];
+
+           currentMap[g.y][g.x] = {hint: '@', distance: 0};
 
            // Compute the hint map for the current gift.
-           this.hintMaps[gi].forEach((r, y) => r.forEach((c, x) => {
-               // If a path passes by (x, y), move to the next cell.
-               if (c !== '?' || this.getTileType(x, y) === "brick") {
+           currentMap.forEach((r, y) => r.forEach((c, x) => {
+               if (c.hint !== '?') {
                    return;
                }
 
@@ -159,26 +164,33 @@ export const Board = {
                    // Build a list of the neighbors of the current node.
                    // The list is based on the possible movements of the player at the current location.
                    const neighbors = [];
-                   function addNeighbor(x, y) {
-                       neighbors.push({x, y, prev: currentNode, cost: currentNode.cost + 1, distance: Math.abs(g.x - x) + Math.abs(g.y - y)})
+                   function addNeighbor(x, y, cost) {
+                       neighbors.push({x, y, prev: currentNode, cost: currentNode.cost + cost, distance: Math.abs(g.x - x) + Math.abs(g.y - y)})
                    }
 
                    if (this.canStand(currentNode.x, currentNode.y) || this.canHang(currentNode.x, currentNode.y)) {
                        if (this.canMoveRight(currentNode.x, currentNode.y)) {
-                           addNeighbor(currentNode.x + 1, currentNode.y);
+                           addNeighbor(currentNode.x + 1, currentNode.y, 1);
                        }
                        if (this.canMoveLeft(currentNode.x, currentNode.y)) {
-                           addNeighbor(currentNode.x - 1, currentNode.y);
-                       }
-                       if (this.canClimbDown(currentNode.x, currentNode.y) || this.canHang(currentNode.x, currentNode.y)) {
-                           addNeighbor(currentNode.x, currentNode.y + 1);
+                           addNeighbor(currentNode.x - 1, currentNode.y, 1);
                        }
                    }
-                   else {
-                       addNeighbor(currentNode.x, currentNode.y + 1);
+
+                   if (this.canClimbDown(currentNode.x, currentNode.y)) {
+                       addNeighbor(currentNode.x, currentNode.y + 1, 1);
                    }
+                   else if (currentNode.y + 1 < this.heightTiles && this.canStand(currentNode.x, currentNode.y)) {
+                       // Assume that we can fall through bricks, but with a higher cost.
+                       addNeighbor(currentNode.x, currentNode.y + 1, brickCost);
+                   }
+                   else if (!this.canStand(currentNode.x, currentNode.y)) {
+                       // Falling has a lower cost.
+                       addNeighbor(currentNode.x, currentNode.y + 1, fallCost);
+                   }
+
                    if (this.canClimbUp(currentNode.x, currentNode.y)) {
-                       addNeighbor(currentNode.x, currentNode.y - 1);
+                       addNeighbor(currentNode.x, currentNode.y - 1, 1);
                    }
 
                    neighbors.forEach(n => {
@@ -205,29 +217,19 @@ export const Board = {
                    openList.sort((a, b) => (a.cost + a.distance) - (b.cost + b.distance));
                }
 
-               // TODO what if there is no valid path.
                for (let node = currentNode; node.prev; node = node.prev) {
-                   this.hintMaps[gi][node.prev.y][node.prev.x] =
-                       node.x < node.prev.x ? 'L' :
-                       node.x > node.prev.x ? 'R' :
-                       node.y < node.prev.y ? 'U' :
-                       node.y > node.prev.y && this.canClimbDown(node.prev.x, node.prev.y) ? 'D' : 'F';
+                   currentMap[node.prev.y][node.prev.x] = {
+                       hint: node.x < node.prev.x ? 'L' :
+                             node.x > node.prev.x ? 'R' :
+                             node.y < node.prev.y ? 'U' :
+                             node.y > node.prev.y && (this.canHang(node.prev.x, node.prev.y) || this.canClimbDown(node.prev.x, node.prev.y)) ? 'D' : 'F',
+                       distance: currentMap[node.y][node.x].distance + (node.cost - node.prev.cost)
+                   };
                }
            }));
-
-           console.log("--");
-           this.hintMaps[gi].forEach((r, y) => console.log(r.join("")));
        });
-   },
 
-   setupDistanceMaps() {
-       // TODO use hintMaps to compute distance
-       this.distanceMaps = this.gifts.map(({x, y}) => {
-           return this.rows.map((r, yt) => r.map((c, xt) => {
-               // Use the Manhattan distance.
-               return Math.abs(x - xt) + Math.abs(y - yt);
-           }));
-       })
+       return result;
    },
 
    loop() {
@@ -278,7 +280,7 @@ export const Board = {
     },
 
     getDistanceToGift(x, y, g) {
-        return this.distanceMaps[this.gifts.indexOf(g)][y][x];
+        return this.humanHints[this.gifts.indexOf(g)][y][x].distance;
     },
 
     getNearestGift(x, y) {
@@ -293,8 +295,7 @@ export const Board = {
         if (!gift) {
             return 'X';
         }
-        const hintMap = this.hintMaps[this.gifts.indexOf(gift)];
-        return hintMap[y][x];
+        return this.robotHints[this.gifts.indexOf(gift)][y][x].hint;
     },
 
     canMoveLeft(x, y) {
@@ -302,11 +303,11 @@ export const Board = {
     },
 
     canMoveRight(x, y) {
-        return x < this.widthTiles - 1 && this.getTileType(x + 1, y) !== "brick";
+        return x + 1 < this.widthTiles && this.getTileType(x + 1, y) !== "brick";
     },
 
     canStand(x, y) {
-        return y == this.heightTiles - 1 ||
+        return y + 1 === this.heightTiles ||
                this.getTileType(x, y + 1) === "brick" ||
                this.getTileType(x, y + 1) === "ladder";
     },
@@ -320,15 +321,15 @@ export const Board = {
     },
 
     canClimbDown(x, y) {
-        return y < this.heightTiles - 1 && this.getTileType(x, y + 1) === "ladder";
+        return y + 1 < this.heightTiles && this.getTileType(x, y + 1) === "ladder";
     },
 
     canBreakLeft(x, y) {
-        return y < this.heightTiles - 1 && x > 0 && this.getTileType(x - 1, y + 1) === "brick";
+        return y + 1 < this.heightTiles && x > 0 && this.getTileType(x - 1, y + 1) === "brick";
     },
 
     canBreakRight(x, y) {
-        return y < this.heightTiles - 1 && x < this.widthTiles - 1 && this.getTileType(x + 1, y + 1) === "brick";
+        return y + 1 < this.heightTiles && x + 1 < this.widthTiles && this.getTileType(x + 1, y + 1) === "brick";
     },
 
     removeTile(x, y) {
