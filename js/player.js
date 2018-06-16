@@ -64,8 +64,36 @@ export const Player = {
         return this.sprite.y;
     },
 
-    get nearestGift() {
-        return this.board.getNearestGift(this.xTile, this.yTile);
+    get nearestTarget() {
+        // Determine the next tile in the current player movement.
+        let xtl = this.xTile;
+        let ytl = this.yTile;
+        if (this.vxPix < 0 && xtl > 0) {
+            xtl --;
+        }
+        else if (this.vxPix > 0 && xtl + 1 < this.board.widthTiles) {
+            xtl ++;
+        }
+        if (this.vyPix < 0 && ytl > 0) {
+            ytl --;
+        }
+        else if (this.vyPix > 0 && ytl + 1 < this.board.heightTiles) {
+            ytl ++;
+        }
+
+        // Compute the distance from the current location and from the next location to each active target.
+        let targets = this.board.targets.filter(t => t.active).map(t => ({
+                target: t,
+                distance: this.board.getDistanceToTarget(this.xTile, this.yTile, t),
+                nextDistance: this.board.getDistanceToTarget(xtl, ytl, t)
+            }));
+
+        // Keep the targets where the distance decreases, if applicable.
+        if (targets.some(t => t.nextDistance < t.distance)) {
+            targets = targets.filter(t => t.nextDistance < t.distance);
+        }
+        // Keep the target with the lowest distance.
+        return targets.reduce((a, b) => a.distance <= b.distance ? a : b).target;
     },
 
     get canMoveLeft() {

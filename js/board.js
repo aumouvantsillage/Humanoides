@@ -37,9 +37,6 @@ export const Board = {
         this.rows = data.map(row => row.split(""));
         this.widthTiles = Math.max(...this.rows.map(r => r.length));
         this.heightTiles = this.rows.length;
-        this.gifts = [];
-        this.humanHints = [];
-        this.robotHints = [];
         this.gravity = TILE_HEIGHT_PX / this.heightTiles / 18;
 
         this.renderer = PIXI.autoDetectRenderer(this.widthTiles * TILE_WIDTH_PX, (this.heightTiles + 1) * TILE_HEIGHT_PX + 2 * MARGIN);
@@ -63,6 +60,8 @@ export const Board = {
 
         this.robots = [];
         this.tiles = [];
+        this.gifts = [];
+        this.targets = [];
 
         // For each tile
         this.rows.forEach((row, ytl) => {
@@ -93,7 +92,7 @@ export const Board = {
                             tileRow.push(null);
                             break;
                         case "gift":
-                            this.gifts.push({x: xtl, y: ytl, collected: false});
+                            this.gifts.push({x: xtl, y: ytl, active: true});
                             tileRow.push(sprite);
                             break;
                         default:
@@ -102,6 +101,28 @@ export const Board = {
                 }
                 else {
                     tileRow.push(null);
+                }
+
+                // Put a target at each end of a platform.
+                if (symbol !== '%' && symbol !== 'H' && symbol !== '@') {
+                    if (ytl + 1 === this.heightTiles) {
+                        if (xtl === 0 || xtl + 1 === this.widthTiles || row[xtl - 1] === '%' || row[xtl + 1] === '%') {
+                            this.targets.push({x: xtl, y: ytl, active: true});
+                        }
+                    }
+                    else if (this.rows[ytl + 1][xtl] === '%') {
+                        if (xtl === 0 || xtl + 1 === this.widthTiles || this.rows[ytl + 1][xtl - 1] !== '%' || this.rows[ytl + 1][xtl + 1] !== '%') {
+                           this.targets.push({x: xtl, y: ytl, active: true});
+                        }
+                    }
+                }
+                // Put a target at each end of a rope.
+                if (symbol === '-' && (xtl === 0 || xtl + 1 === this.widthTiles || row[xtl - 1] !== '-' || row[xtl + 1] !== '-')) {
+                    this.targets.push({x: xtl, y: ytl, active: true});
+                }
+                // Put a target at each end of a ladder.
+                if (symbol === 'H' && (ytl === 0 || ytl + 1 === this.heightTiles || this.rows[ytl - 1][xtl] !== 'H' ||  this.rows[ytl + 1][xtl] !== 'H')) {
+                    this.targets.push({x: xtl, y: ytl, active: true});
                 }
            });
 
@@ -120,6 +141,7 @@ export const Board = {
        });
 
        this.remainingGifts = this.gifts.length;
+       this.targets = this.targets.concat(this.gifts);
 
        this.robotHints = this.computeHintMaps(FALL_COST, ROBOT_BRICK_COST);
        this.humanHints = this.computeHintMaps(FALL_COST, HUMAN_BRICK_COST);
@@ -132,14 +154,14 @@ export const Board = {
 
    computeHintMaps(fallCost, brickCost) {
        // Initialize the map with empty cells.
-       const result = this.gifts.map(g => this.rows.map(r => r.map(c => ({hint: '?', distance: Infinity}))));
+       const result = this.targets.map(g => this.rows.map(r => r.map(c => ({hint: '?', distance: Infinity}))));
 
-       this.gifts.forEach((g, gi) => {
+       this.targets.forEach((g, gi) => {
            const currentMap = result[gi];
 
            currentMap[g.y][g.x] = {hint: '@', distance: 0};
 
-           // Compute the hint map for the current gift.
+           // Compute the hint map for the current target.
            currentMap.forEach((r, y) => r.forEach((c, x) => {
                // Compute a path from (x, y) to (g.x, g.y) using the A* algorithm.
                const closedList = [];
@@ -275,23 +297,23 @@ export const Board = {
         return "empty";
     },
 
-    getDistanceToGift(x, y, g) {
-        return this.humanHints[this.gifts.indexOf(g)][y][x].distance;
+    getDistanceToTarget(x, y, g) {
+        return this.humanHints[this.targets.indexOf(g)][y][x].distance;
     },
 
-    getNearestGift(x, y) {
-        return this.gifts.filter(g => !g.collected).reduce((a, b) => {
-            return this.getDistanceToGift(x, y, a) < this.getDistanceToGift(x, y, b) ?
+    getNearestTarget(x, y) {
+        return this.targets.filter(g => g.active).reduce((a, b) => {
+            return this.getDistanceToTarget(x, y, a) < this.getDistanceToTarget(x, y, b) ?
                 a : b;
         });
     },
 
     getHint(x, y) {
-        const gift = this.player.nearestGift;
-        if (!gift) {
+        const target = this.player.nearestTarget;
+        if (!target) {
             return 'X';
         }
-        return this.robotHints[this.gifts.indexOf(gift)][y][x].hint;
+        return this.robotHints[this.targets.indexOf(target)][y][x].hint;
     },
 
     canMoveLeft(x, y) {
@@ -359,11 +381,15 @@ export const Board = {
         }, TILE_HIDE_DELAY_MS);
     },
 
-    collectGift(g) {
-        g.collected = true;
+    collectGift(x, y) {
+        const g = this.gifts.find(g => g.x === x && g.y === y);
+        if (!g) {
+            return;
+        }
+        g.active = false;
         this.remainingGifts --;
-        this.rows[g.y][g.x] = ' ';
-        let tile = this.tiles[g.y][g.x];
+        this.rows[y][x] = ' ';
+        let tile = this.tiles[y][x];
         tile.x = (this.widthTiles  - 0.5) * TILE_WIDTH_PX - this.remainingGifts * (TILE_WIDTH_PX + MARGIN) - MARGIN;
         tile.y = (this.heightTiles + 0.5) * TILE_HEIGHT_PX + MARGIN;
     }
