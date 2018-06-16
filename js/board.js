@@ -143,13 +143,17 @@ export const Board = {
        this.remainingGifts = this.gifts.length;
        this.targets = this.targets.concat(this.gifts);
 
-       this.robotHints = this.computeHintMaps(FALL_COST, ROBOT_BRICK_COST);
        this.humanHints = this.computeHintMaps(FALL_COST, HUMAN_BRICK_COST);
+       this.recomputeHints();
 
        window.addEventListener("keydown", (evt) => this.onKeyChange(evt, true));
        window.addEventListener("keyup", (evt)   => this.onKeyChange(evt, false));
 
        this.loop();
+   },
+
+   recomputeHints() {
+       this.robotHints = this.computeHintMaps(FALL_COST, ROBOT_BRICK_COST);
    },
 
    computeHintMaps(fallCost, brickCost) {
@@ -297,6 +301,7 @@ export const Board = {
         return "empty";
     },
 
+    // TODO move this to human
     getDistanceToTarget(x, y, g) {
         return this.humanHints[this.targets.indexOf(g)][y][x].distance;
     },
@@ -308,11 +313,41 @@ export const Board = {
         });
     },
 
+    // TODO move this to robot
     getHint(x, y) {
-        const target = this.player.nearestTarget;
+        // Find if a path to the player is available.
+        let target = this.targets.find((t, i) => {
+            let rx = x;
+            let ry = y;
+            // Limit the path length.
+            for (let j = 0; j < this.widthTiles + this.heightTiles; j ++) {
+                // If the current path passes by the player location, OK.
+                if (rx === this.player.xTile && ry === this.player.yTile) {
+                    return true;
+                }
+                // Else, check next location along the current path.
+                switch (this.robotHints[i][ry][rx].hint) {
+                    case 'L': rx --; break;
+                    case 'R': rx ++; break;
+                    case 'U': ry --; break;
+                    case 'D':
+                    case 'F': ry ++; break;
+                    default: return false;
+                }
+            }
+            return false;
+        });
+
+        // If no path was found, then move to the current target of the player.
+        if (!target) {
+            target = this.player.nearestTarget;
+        }
+
+        // If no target was found, don't move at all.
         if (!target) {
             return 'X';
         }
+
         return this.robotHints[this.targets.indexOf(target)][y][x].hint;
     },
 
@@ -364,6 +399,8 @@ export const Board = {
     breakBrick(x, y) {
         let [symbol, tile] = this.removeTile(x, y);
 
+        this.recomputeHints();
+
         // Show it again after a given delay.
         window.setTimeout(() => {
             this.rows[y][x] = symbol;
@@ -378,6 +415,8 @@ export const Board = {
                     r.moveToEmptyLocation(x, y);
                 }
             });
+
+            this.recomputeHints();
         }, TILE_HIDE_DELAY_MS);
     },
 
