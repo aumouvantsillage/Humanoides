@@ -6,15 +6,6 @@ module.exports = function(grunt) {
     var pkg = grunt.file.readJSON("package.json");
     pkg.version = grunt.template.today("yy.mm.ddHHMM");
 
-    grunt.verbose.write("Checking for bower_components...");
-    if (grunt.file.isDir("bower_components")) {
-        grunt.verbose.ok();
-    }
-    else {
-        grunt.log.error("bower_components not found! Please run `bower install`.");
-        process.exit();
-    }
-
     grunt.initConfig({
         pkg: pkg,
 
