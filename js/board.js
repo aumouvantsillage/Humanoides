@@ -1,13 +1,12 @@
 
 import "pixi.js";
 import * as player from "./player.js";
-import {Human} from "./human.js";
+import {Human, HUMAN_LIVES} from "./human.js";
 import {Robot} from "./robot.js";
 
 const TILE_WIDTH_PX      = 24;
 const TILE_HEIGHT_PX     = 24;
 const MARGIN             = 4;
-const HUMAN_LIVES        = 3;
 const TILE_HIDE_DELAY_MS = 5000;
 
 const FALL_COST = 0.9;
@@ -33,6 +32,7 @@ const KEYS = {
 
 export const Board = {
     init(data) {
+        this.finish = false;
         this.rows = data.map(row => row.split(""));
         this.widthTiles = Math.max(...this.rows.map(r => r.length));
         this.heightTiles = this.rows.length;
@@ -83,11 +83,11 @@ export const Board = {
                     // Keep a reference to the human sprite
                     switch (spriteName) {
                         case "human":
-                            this.player = Object.create(Human).init(this, sprite);
+                            this.player = Object.create(Human).init(this, sprite, xtl, ytl);
                             tileRow.push(null);
                             break;
                         case "robot":
-                            this.robots.push(Object.create(Robot).init(this, sprite));
+                            this.robots.push(Object.create(Robot).init(this, sprite, xtl, ytl));
                             tileRow.push(null);
                             break;
                         case "gift":
@@ -124,20 +124,20 @@ export const Board = {
                     this.targets.push({x: xtl, y: ytl, active: true});
                 }
            });
-
-           // Show remaining lives at the bottom of the screen.
-           this.lifeSprites = [];
-           const texture = new PIXI.Texture(textures.human, player.getDefaultFrame());
-           for (let i = 0; i < HUMAN_LIVES; i ++) {
-               const sprite = new PIXI.Sprite(texture);
-               sprite.anchor.x = sprite.anchor.y = 0.5;
-               sprite.x = (i                + 0.5) * TILE_WIDTH_PX  + MARGIN;
-               sprite.y = (this.heightTiles + 0.5) * TILE_HEIGHT_PX + MARGIN;
-               this.stage.addChild(sprite);
-
-               this.lifeSprites.push(sprite);
-           }
        });
+
+       // Show remaining lives at the bottom of the screen.
+       this.lifeSprites = [];
+       const texture = new PIXI.Texture(textures.human, player.getDefaultFrame());
+       for (let i = 0; i < HUMAN_LIVES; i ++) {
+           const sprite = new PIXI.Sprite(texture);
+           sprite.anchor.x = sprite.anchor.y = 0.5;
+           sprite.x = (i                + 0.5) * TILE_WIDTH_PX  + MARGIN;
+           sprite.y = (this.heightTiles + 0.5) * TILE_HEIGHT_PX + MARGIN;
+           this.stage.addChild(sprite);
+
+           this.lifeSprites.push(sprite);
+       }
 
        this.remainingGifts = this.gifts.length;
        this.targets = this.targets.concat(this.gifts);
@@ -259,7 +259,11 @@ export const Board = {
        });
    },
 
-   loop() {
+    loop() {
+        // Loop until the player has 0 lives.
+        if (this.finish) {
+            return;
+        }
         // Loop this function every 60 ms
         requestAnimationFrame(() => this.loop());
         this.update();
@@ -386,5 +390,21 @@ export const Board = {
         let tile = this.tiles[y][x];
         tile.x = (this.widthTiles  - 0.5) * TILE_WIDTH_PX - this.remainingGifts * (TILE_WIDTH_PX + MARGIN) - MARGIN;
         tile.y = (this.heightTiles + 0.5) * TILE_HEIGHT_PX + MARGIN;
+    },
+
+    onLose() {
+        // Update the displayed player lives.
+        for (let i = this.player.lives; i < this.lifeSprites.length; i ++) {
+            this.lifeSprites[i].visible = false;
+        }
+
+        if (this.player.lives) {
+            // Put player and robots back to their original locations.
+            this.player.reset();
+            this.robots.forEach(r => r.reset());
+        }
+        else {
+            this.finish = true;
+        }
     }
 };

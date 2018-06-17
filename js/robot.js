@@ -5,7 +5,7 @@ export const Robot = Object.create(Player);
 
 Robot.getHint = function () {
     // Find if a path to the player is available.
-    let target = this.board.targets.find(t => {
+    const targetsThroughHuman = this.board.targets.filter(t => {
         let rx = this.xTile;
         let ry = this.yTile;
         // Limit the path length.
@@ -27,10 +27,9 @@ Robot.getHint = function () {
         return false;
     });
 
-    // If no path was found, then move to the current target of the player.
-    if (!target) {
-        target = this.board.player.nearestTarget;
-    }
+    let target = targetsThroughHuman.length ?
+        targetsThroughHuman.reduce((a, b) => this.getDistanceToTarget(a) <= this.getDistanceToTarget(b) ? a : b) :
+        this.board.player.nearestTarget;
 
     // Return the move to the target, if applicable.
     return target ? this.getMoveToTarget(target) : '?';
@@ -45,12 +44,14 @@ Robot.update = function () {
         bottom: false
     };
 
-    // The robot will move towards the target nearest to the player.
-    switch (this.getHint()) {
-        case 'R': this.commands.right = true; break;
-        case 'L': this.commands.left = true; break;
-        case 'D': this.commands.down = true; break;
-        case 'U': this.commands.up = true; break;
+    if (this.xTile !== this.board.player.xTile || this.yTile !== this.board.player.yTile) {
+        // The robot will move towards the target nearest to the player.
+        switch (this.getHint()) {
+            case 'R': this.commands.right = true; break;
+            case 'L': this.commands.left = true; break;
+            case 'D': this.commands.down = true; break;
+            case 'U': this.commands.up = true; break;
+        }
     }
 
     Player.update.call(this);

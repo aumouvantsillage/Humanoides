@@ -14,10 +14,11 @@ const PLAYER_STATES = {
     "hanging": [19],
     "hanging-left": [19, 20, 21, 22],
     "hanging-right": [19, 20, 21, 22],
-    "ladder": [18],
+    "climbing": [18],
     "climbing-up": [15, 16, 17, 18],
     "climbing-down": [15, 16, 17, 18],
-    "falling": [13, 13, 13, 14, 14, 14]
+    "falling": [13, 13, 13, 14, 14, 14],
+    "exploding": [23, 24, 25, 26]
 };
 
 export function getDefaultFrame() {
@@ -25,10 +26,12 @@ export function getDefaultFrame() {
 }
 
 export const Player = {
-    init(board, sprite) {
+    init(board, sprite, xtl, ytl) {
         this.board = board;
         this.sprite = sprite;
         this.state = "standing";
+        this.xTileInit = xtl;
+        this.yTileInit = ytl;
         this.step = 0;
         this.vxPix = 0;
         this.vyPix = 0;
@@ -38,6 +41,12 @@ export const Player = {
         this.sprite.texture.frame = getDefaultFrame();
 
         return this;
+    },
+
+    reset() {
+        this.xTile = this.xTileInit;
+        this.yTile = this.yTileInit;
+        this.stand();
     },
 
     get xTile() {
@@ -138,7 +147,7 @@ export const Player = {
 
     stand() {
         if (this.canClimbUp) {
-            this.state = "ladder";
+            this.state = "climbing";
         }
         else {
             this.state = "standing";
@@ -202,6 +211,13 @@ export const Player = {
         this.step = 0;
         this.vxPix = 0;
         this.vyPix = PLAYER_SPEED_PX_PER_FRAME;
+    },
+
+    explode() {
+        this.state = "exploding";
+        this.step = 0;
+        this.vxPix = 0;
+        this.vyPix = 0;
     },
 
     finishMove(method) {
@@ -386,7 +402,7 @@ export const Player = {
                     this.finishMove(this.hang);
                 }
                 break;
-            case "ladder":
+            case "climbing":
                 if (this.commands.breakLeft && this.canBreakLeft) {
                     this.board.breakBrick(this.xTile - 1, this.yTile + 1);
                 }
@@ -446,6 +462,10 @@ export const Player = {
                     this.finishMove(this.stand);
                 }
                 break;
+            case "exploding":
+                if (this.frameCounter % FRAMES_PER_ANIMATION_STEP === 0 && this.step === 0) {
+                    this.board.onLose();
+                }
         }
     }
 };
