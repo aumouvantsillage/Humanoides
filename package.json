@@ -1,8 +1,8 @@
 {
   "name": "humanoides",
   "version": "0.1.0",
-  "description": "A game inspired by the 1985 MO5 game Androides",
-  "license": "GPL",
+  "description": "A game inspired by Androides for the 1985 MO5 computer",
+  "license": "MPL-2.0",
   "devDependencies": {
     "babel-preset-es2015": "^6.24.1",
     "grunt": "^1.0.1",
