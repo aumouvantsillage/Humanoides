@@ -385,7 +385,12 @@ export const Board = {
             return;
         }
         g.active = false;
+
         this.remainingGifts --;
+        if (!this.remainingGifts) {
+            this.finish = true;
+        }
+
         this.rows[y][x] = ' ';
         let tile = this.tiles[y][x];
         tile.x = (this.widthTiles  - 0.5) * TILE_WIDTH_PX - this.remainingGifts * (TILE_WIDTH_PX + MARGIN) - MARGIN;
