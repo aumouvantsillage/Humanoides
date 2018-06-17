@@ -385,31 +385,27 @@ export const Board = {
             return;
         }
         g.active = false;
-
         this.remainingGifts --;
-        if (!this.remainingGifts) {
-            this.finish = true;
-        }
-
         this.rows[y][x] = ' ';
         let tile = this.tiles[y][x];
         tile.x = (this.widthTiles  - 0.5) * TILE_WIDTH_PX - this.remainingGifts * (TILE_WIDTH_PX + MARGIN) - MARGIN;
         tile.y = (this.heightTiles + 0.5) * TILE_HEIGHT_PX + MARGIN;
     },
 
-    onLose() {
+    checkFinish() {
         // Update the displayed player lives.
         for (let i = this.player.lives; i < this.lifeSprites.length; i ++) {
             this.lifeSprites[i].visible = false;
         }
 
-        if (this.player.lives) {
-            // Put player and robots back to their original locations.
-            this.player.reset();
-            this.robots.forEach(r => r.reset());
-        }
-        else {
+        // Check for game termination.
+        if (!this.player.lives || !this.remainingGifts) {
             this.finish = true;
+            return;
         }
+
+        // Put player and robots back to their original locations.
+        this.player.reset();
+        this.robots.forEach(r => r.reset());
     }
 };

@@ -44,7 +44,10 @@ Robot.update = function () {
         bottom: false
     };
 
-    if (this.xTile !== this.board.player.xTile || this.yTile !== this.board.player.yTile) {
+    if (!this.board.remainingGifts && this.state !== "exploding") {
+        this.explode();
+    }
+    else if (this.xTile !== this.board.player.xTile || this.yTile !== this.board.player.yTile) {
         // The robot will move towards the target nearest to the player.
         switch (this.getHint()) {
             case 'R': this.commands.right = true; break;

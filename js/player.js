@@ -464,7 +464,7 @@ export const Player = {
                 break;
             case "exploding":
                 if (this.frameCounter % FRAMES_PER_ANIMATION_STEP === 0 && this.step === 0) {
-                    this.board.onLose();
+                    this.board.checkFinish();
                 }
         }
     }
