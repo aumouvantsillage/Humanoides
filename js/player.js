@@ -64,6 +64,14 @@ export const Player = {
         return this.sprite.y;
     },
 
+    getDistanceToTarget(t, x = this.xTile, y = this.yTile) {
+        return this.board.hints[this.board.targets.indexOf(t)][y][x].distance;
+    },
+
+    getMoveToTarget(t, x = this.xTile, y = this.yTile) {
+        return this.board.hints[this.board.targets.indexOf(t)][y][x].move;
+    },
+
     get nearestTarget() {
         // Determine the next tile in the current player movement.
         let xtl = this.xTile;
@@ -84,8 +92,8 @@ export const Player = {
         // Compute the distance from the current location and from the next location to each active target.
         let targets = this.board.targets.filter(t => t.active).map(t => ({
                 target: t,
-                distance: this.board.getDistanceToTarget(this.xTile, this.yTile, t),
-                nextDistance: this.board.getDistanceToTarget(xtl, ytl, t)
+                distance: this.getDistanceToTarget(t),
+                nextDistance: this.getDistanceToTarget(t, xtl, ytl)
             }));
 
         // Keep the targets where the distance decreases, if applicable.

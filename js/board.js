@@ -11,8 +11,7 @@ const HUMAN_LIVES        = 3;
 const TILE_HIDE_DELAY_MS = 5000;
 
 const FALL_COST = 0.9;
-const HUMAN_BRICK_COST = 3;
-const ROBOT_BRICK_COST = TILE_HEIGHT_PX + TILE_WIDTH_PX;
+const BRICK_COST = TILE_HEIGHT_PX + TILE_WIDTH_PX;
 
 const SYMBOLS = {
     "%": "brick",
@@ -143,8 +142,7 @@ export const Board = {
        this.remainingGifts = this.gifts.length;
        this.targets = this.targets.concat(this.gifts);
 
-       this.humanHints = this.computeHintMaps(FALL_COST, HUMAN_BRICK_COST);
-       this.recomputeHints();
+       this.computeHints();
 
        window.addEventListener("keydown", (evt) => this.onKeyChange(evt, true));
        window.addEventListener("keyup", (evt)   => this.onKeyChange(evt, false));
@@ -152,31 +150,40 @@ export const Board = {
        this.loop();
    },
 
-   recomputeHints() {
-       this.robotHints = this.computeHintMaps(FALL_COST, ROBOT_BRICK_COST);
-   },
-
-   computeHintMaps(fallCost, brickCost) {
+   computeHints() {
        // Initialize the map with empty cells.
-       const result = this.targets.map(g => this.rows.map(r => r.map(c => ({hint: '?', distance: Infinity}))));
+       if (!this.hints) {
+           this.hints = this.targets.map(t => this.rows.map(r => r.map(c => ({
+               move: '?',
+               distance: Infinity
+           }))));
+       }
+       else {
+           this.hints.forEach((m, i) => m.forEach((r, y) => r.forEach(c => {
+               c.move = '?';
+               c.distance = Infinity;
+           })));
+       }
 
        this.targets.forEach((g, gi) => {
-           const currentMap = result[gi];
+           const currentMap = this.hints[gi];
 
-           currentMap[g.y][g.x] = {hint: '@', distance: 0};
+           currentMap[g.y][g.x].move = '@';
+           currentMap[g.y][g.x].distance = 0;
 
            // Compute the hint map for the current target.
            currentMap.forEach((r, y) => r.forEach((c, x) => {
                // Compute a path from (x, y) to (g.x, g.y) using the A* algorithm.
                const closedList = [];
                const openList = [{x, y, cost: 0, distance: 0, prev: null}];
+
                let currentNode;
                while (openList.length) {
                    // Get the unexplored node with the lowest estimated path length.
                    currentNode = openList.shift();
 
-                   // If the current node is the target, stop the exploration.
-                   if (currentMap[currentNode.y][currentNode.x].hint != '?' || currentNode.x === g.x && currentNode.y === g.y) {
+                   // If the current node already belongs to another path, or is the target, stop the exploration.
+                   if (currentMap[currentNode.y][currentNode.x].move !== '?' || currentNode.x === g.x && currentNode.y === g.y) {
                        break;
                    }
 
@@ -204,11 +211,11 @@ export const Board = {
                    }
                    else if (currentNode.y + 1 < this.heightTiles && this.canStand(currentNode.x, currentNode.y)) {
                        // Assume that we can fall through bricks, but with a higher cost.
-                       addNeighbor(currentNode.x, currentNode.y + 1, brickCost);
+                       addNeighbor(currentNode.x, currentNode.y + 1, BRICK_COST);
                    }
                    else if (!this.canStand(currentNode.x, currentNode.y)) {
                        // Falling has a lower cost.
-                       addNeighbor(currentNode.x, currentNode.y + 1, fallCost);
+                       addNeighbor(currentNode.x, currentNode.y + 1, FALL_COST);
                    }
 
                    if (this.canClimbUp(currentNode.x, currentNode.y)) {
@@ -241,7 +248,7 @@ export const Board = {
 
                for (let node = currentNode; node.prev; node = node.prev) {
                    currentMap[node.prev.y][node.prev.x] = {
-                       hint: node.x < node.prev.x ? 'L' :
+                       move: node.x < node.prev.x ? 'L' :
                              node.x > node.prev.x ? 'R' :
                              node.y < node.prev.y ? 'U' :
                              node.y > node.prev.y && (this.canHang(node.prev.x, node.prev.y) || this.canClimbDown(node.prev.x, node.prev.y)) ? 'D' : 'F',
@@ -250,8 +257,6 @@ export const Board = {
                }
            }));
        });
-
-       return result;
    },
 
    loop() {
@@ -299,56 +304,6 @@ export const Board = {
             return SYMBOLS[symbol];
         }
         return "empty";
-    },
-
-    // TODO move this to human
-    getDistanceToTarget(x, y, g) {
-        return this.humanHints[this.targets.indexOf(g)][y][x].distance;
-    },
-
-    getNearestTarget(x, y) {
-        return this.targets.filter(g => g.active).reduce((a, b) => {
-            return this.getDistanceToTarget(x, y, a) < this.getDistanceToTarget(x, y, b) ?
-                a : b;
-        });
-    },
-
-    // TODO move this to robot
-    getHint(x, y) {
-        // Find if a path to the player is available.
-        let target = this.targets.find((t, i) => {
-            let rx = x;
-            let ry = y;
-            // Limit the path length.
-            for (let j = 0; j < this.widthTiles + this.heightTiles; j ++) {
-                // If the current path passes by the player location, OK.
-                if (rx === this.player.xTile && ry === this.player.yTile) {
-                    return true;
-                }
-                // Else, check next location along the current path.
-                switch (this.robotHints[i][ry][rx].hint) {
-                    case 'L': rx --; break;
-                    case 'R': rx ++; break;
-                    case 'U': ry --; break;
-                    case 'D':
-                    case 'F': ry ++; break;
-                    default: return false;
-                }
-            }
-            return false;
-        });
-
-        // If no path was found, then move to the current target of the player.
-        if (!target) {
-            target = this.player.nearestTarget;
-        }
-
-        // If no target was found, don't move at all.
-        if (!target) {
-            return 'X';
-        }
-
-        return this.robotHints[this.targets.indexOf(target)][y][x].hint;
     },
 
     canMoveLeft(x, y) {
@@ -399,7 +354,7 @@ export const Board = {
     breakBrick(x, y) {
         let [symbol, tile] = this.removeTile(x, y);
 
-        this.recomputeHints();
+        this.computeHints();
 
         // Show it again after a given delay.
         window.setTimeout(() => {
@@ -416,7 +371,7 @@ export const Board = {
                 }
             });
 
-            this.recomputeHints();
+            this.computeHints();
         }, TILE_HIDE_DELAY_MS);
     },
 
