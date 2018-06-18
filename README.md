@@ -2,11 +2,12 @@
 Humanoïdes is a game similar to [Androides](https://youtu.be/S4ewY7xWzKY),
 a French game developed in 1985 for the microcomputer Thomson MO5.
 
-This is a work in progress: it currently has only one level; nothing happens
-when you win or get caught; there is no sound.
+This is a work in progress: it currently has only one level and no sound.
 
 Usage
 =====
+
+Try the demo at http://humanoides.baierouge.fr/
 
 The main character is controlled by the keyboard:
 
