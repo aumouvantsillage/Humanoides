@@ -1,5 +1,5 @@
 
-import {Board} from "./board.js"
+import {Board, encode, decode} from "./board.js"
 
 const board1 = [
     "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%",
@@ -26,5 +26,31 @@ const board1 = [
     "%%%H                                H%%%"
 ];
 
+const board2 = [
+    "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%",
+    "%       X                               %",
+    "%                            @   #     %",
+    "%                       H%%%%%%%%%%%%%H%",
+    "% @                     H             H%",
+    "% HHHH%%%%%%%%%%%%%%%%% H             H%",
+    "% HHHH        @         H             H%",
+    "% HHHH     H%%%%%%%%%%%%H             H%",
+    "% HHHH     H                          H%",
+    "% HHHH     H                          H%",
+    "% HHHH     H                          H%",
+    "% %%%%%%%%%H                          H%",
+    "%          H         #       @        H%",
+    "%          H%%%%%%%%%%%%%%%%%%%%%%%%%%H%",
+    "%          H                          H%",
+    "%          H                          H%",
+    "%          H------------------------- H%",
+    "%          H                          H%",
+    "%          H                          H%",
+    "%          H                          H%",
+    "%          H                          H%",
+    "%          H    @                     H%",
+];
+
+encode(board1).then(data => decode(data));
 
 window.addEventListener("load", () => Board.init(board1));

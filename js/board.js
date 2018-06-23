@@ -3,6 +3,7 @@ import "pixi.js";
 import * as player from "./player.js";
 import {Human, HUMAN_LIVES} from "./human.js";
 import {Robot} from "./robot.js";
+import JSZip from "jszip";
 
 const TILE_WIDTH_PX      = 24;
 const TILE_HEIGHT_PX     = 24;
@@ -11,6 +12,8 @@ const TILE_HIDE_DELAY_MS = 5000;
 
 const FALL_COST = 0.9;
 const BRICK_COST = TILE_HEIGHT_PX + TILE_WIDTH_PX;
+
+const ENCODING_RUN_LENGTH_MAX = 16;
 
 const SYMBOLS = {
     "%": "brick",
@@ -30,9 +33,32 @@ const KEYS = {
     breakRight: ["d", "D"]
 };
 
+// Returns a promise with a compressed base64 encoding of the given board data.
+export function encode(data) {
+    const zipper = new JSZip();
+    return zipper
+        .file("board.json", JSON.stringify(data))
+        .generateAsync({
+            type: "base64",
+            compression: "DEFLATE",
+            compressionOptions: {level: 9}
+        });
+}
+
+export function decode(data) {
+    return JSZip
+        .loadAsync(data, {
+            base64: true
+        })
+        .then(zip => zip.file("board.json").async("string"))
+        .then(str => JSON.parse(str))
+        .then(str => console.log(str));
+}
+
 export const Board = {
     init(data) {
         this.finish = false;
+        this.data = "";
         this.rows = data.map(row => row.split(""));
         this.widthTiles = Math.max(...this.rows.map(r => r.length));
         this.heightTiles = this.rows.length;
