@@ -3,7 +3,6 @@ import "pixi.js";
 import * as player from "./player.js";
 import {Human, HUMAN_LIVES} from "./human.js";
 import {Robot} from "./robot.js";
-import JSZip from "jszip";
 
 const TILE_WIDTH_PX      = 24;
 const TILE_HEIGHT_PX     = 24;
@@ -13,7 +12,7 @@ const TILE_HIDE_DELAY_MS = 5000;
 const FALL_COST = 0.9;
 const BRICK_COST = TILE_HEIGHT_PX + TILE_WIDTH_PX;
 
-const ENCODING_RUN_LENGTH_MAX = 16;
+const ENCODING_RUN_LENGTH_MAX = 32;
 
 const SYMBOLS = {
     "%": "brick",
@@ -33,32 +32,9 @@ const KEYS = {
     breakRight: ["d", "D"]
 };
 
-// Returns a promise with a compressed base64 encoding of the given board data.
-export function encode(data) {
-    const zipper = new JSZip();
-    return zipper
-        .file("board.json", JSON.stringify(data))
-        .generateAsync({
-            type: "base64",
-            compression: "DEFLATE",
-            compressionOptions: {level: 9}
-        });
-}
-
-export function decode(data) {
-    return JSZip
-        .loadAsync(data, {
-            base64: true
-        })
-        .then(zip => zip.file("board.json").async("string"))
-        .then(str => JSON.parse(str))
-        .then(str => console.log(str));
-}
-
 export const Board = {
     init(data) {
         this.finish = false;
-        this.data = "";
         this.rows = data.map(row => row.split(""));
         this.widthTiles = Math.max(...this.rows.map(r => r.length));
         this.heightTiles = this.rows.length;
@@ -73,6 +49,51 @@ export const Board = {
         PIXI.loader.load(() => this.setup());
 
         return this;
+    },
+
+    encode() {
+        const res = [this.widthTiles, this.heightTiles];
+
+        let prev = this.rows[0][0];
+        let count = 0;
+
+        function push() {
+            res.push((count - 1) + (Object.keys(SYMBOLS).indexOf(prev) + 1) * ENCODING_RUN_LENGTH_MAX);
+        }
+
+        this.rows.forEach(r => r.forEach(c => {
+            if (c !== prev || count === ENCODING_RUN_LENGTH_MAX) {
+                push();
+                prev = c;
+                count = 0;
+            }
+            count ++;
+        }));
+        push();
+
+        return btoa(res.map(c => String.fromCharCode(c)).join(""));
+    },
+
+    decode(str) {
+        const bytes = atob(str).split("").map(c => c.charCodeAt(0));
+        const width = bytes[0];
+        const height = bytes[1];
+        const data = [];
+        let row = [];
+        for (let i = 2; i < bytes.length; i ++) {
+            const symbolIndex = Math.floor(bytes[i] / ENCODING_RUN_LENGTH_MAX);
+            const symbol = symbolIndex > 0 ? Object.keys(SYMBOLS)[symbolIndex - 1] : " ";
+            const count = bytes[i] % ENCODING_RUN_LENGTH_MAX + 1;
+
+            for (let j = 0; j < count; j ++) {
+                row.push(symbol);
+                if (row.length === width) {
+                    data.push(row.join(""));
+                    row = [];
+                }
+            }
+        }
+        return this.init(data);
     },
 
     setup() {

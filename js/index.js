@@ -28,7 +28,7 @@ const board1 = [
 
 const board2 = [
     "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%",
-    "%       X                               %",
+    "%       X                              %",
     "%                            @   #     %",
     "%                       H%%%%%%%%%%%%%H%",
     "% @                     H             H%",
@@ -51,6 +51,12 @@ const board2 = [
     "%          H    @                     H%",
 ];
 
-encode(board1).then(data => decode(data));
-
-window.addEventListener("load", () => Board.init(board1));
+window.addEventListener("load", () => {
+    if (!window.location.hash.length) {
+        Board.init(board1);
+        window.location.hash = "#" + Board.encode();
+    }
+    else {
+        Board.decode(window.location.hash.slice(1));
+    }
+});
