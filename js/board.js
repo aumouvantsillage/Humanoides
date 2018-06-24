@@ -33,7 +33,7 @@ const KEYS = {
 };
 
 export const Board = {
-    init(data) {
+    init(data, onLoad) {
         this.finish = false;
         this.rows = data.map(row => row.split(""));
         this.widthTiles = Math.max(...this.rows.map(r => r.length));
@@ -46,7 +46,14 @@ export const Board = {
         this.stage = new PIXI.Container();
 
         Object.values(SYMBOLS).forEach(name => PIXI.loader.add(`assets/${name}.png`));
-        PIXI.loader.load(() => this.setup());
+        PIXI.loader.load(() => {
+            this.setup();
+            if (onLoad) {
+                onLoad(this);
+            }
+            this.renderer.render(this.stage);
+            this.run();
+        });
 
         return this;
     },
@@ -74,7 +81,7 @@ export const Board = {
         return btoa(res.map(c => String.fromCharCode(c)).join(""));
     },
 
-    decode(str) {
+    decode(str, onLoad) {
         const bytes = atob(str).split("").map(c => c.charCodeAt(0));
         const width = bytes[0];
         const height = bytes[1];
@@ -93,7 +100,7 @@ export const Board = {
                 }
             }
         }
-        return this.init(data);
+        return this.init(data, onLoad);
     },
 
     setup() {
@@ -192,9 +199,7 @@ export const Board = {
        this.computeHints();
 
        window.addEventListener("keydown", (evt) => this.onKeyChange(evt, true));
-       window.addEventListener("keyup", (evt)   => this.onKeyChange(evt, false));
-
-       this.loop();
+       window.addEventListener("keyup",   (evt) => this.onKeyChange(evt, false));
    },
 
    computeHints() {
@@ -306,13 +311,13 @@ export const Board = {
        });
    },
 
-    loop() {
+    run() {
         // Loop until the player has 0 lives.
         if (this.finish) {
             return;
         }
         // Loop this function every 60 ms
-        requestAnimationFrame(() => this.loop());
+        requestAnimationFrame(() => this.run());
         this.update();
     },
 
@@ -391,7 +396,7 @@ export const Board = {
         return y + 1 < this.heightTiles && x + 1 < this.widthTiles && this.getTileType(x + 1, y + 1) === "brick";
     },
 
-    removeTile(x, y) {
+    hideTile(x, y) {
         let symbol = this.rows[y][x];
         let tile = this.tiles[y][x];
 
@@ -403,7 +408,7 @@ export const Board = {
     },
 
     breakBrick(x, y) {
-        let [symbol, tile] = this.removeTile(x, y);
+        let [symbol, tile] = this.hideTile(x, y);
 
         this.computeHints();
 

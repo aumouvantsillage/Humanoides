@@ -1,5 +1,5 @@
 
-import {Board, encode, decode} from "./board.js"
+import {Board} from "./board.js"
 
 const board1 = [
     "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%",
@@ -53,8 +53,7 @@ const board2 = [
 
 window.addEventListener("load", () => {
     if (!window.location.hash.length) {
-        Board.init(board1);
-        window.location.hash = "#" + Board.encode();
+        Board.init(board1, b => window.location.hash = "#" + b.encode());
     }
     else {
         Board.decode(window.location.hash.slice(1));

@@ -26,14 +26,18 @@ module.exports = function(grunt) {
         },
 
         browserify: {
-            all: {
-                options: {
-                    browserifyOptions: {
-                        basedir: "build/js"
-                    }
-                },
+            options: {
+                browserifyOptions: {
+                    basedir: "build/js"
+                }
+            },
+            index: {
                 src: ["build/js/index.js"],
                 dest: "build/js/index.web.js"
+            },
+            edit: {
+                src: ["build/js/edit.js"],
+                dest: "build/js/edit.web.js"
             }
         },
 
