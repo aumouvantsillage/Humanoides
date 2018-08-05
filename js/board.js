@@ -4,9 +4,9 @@ import * as player from "./player.js";
 import {Human, HUMAN_LIVES} from "./human.js";
 import {Robot} from "./robot.js";
 
-const TILE_WIDTH_PX      = 24;
-const TILE_HEIGHT_PX     = 24;
-const MARGIN             = 4;
+export const TILE_WIDTH_PX      = 24;
+export const TILE_HEIGHT_PX     = 24;
+export const MARGIN             = 4;
 const TILE_HIDE_DELAY_MS = 5000;
 
 const FALL_COST = 0.9;
@@ -105,10 +105,10 @@ export const Board = {
 
     setup() {
         // Load textures.
-        let textures = {};
+        this.textures = {};
         for (let symbol in SYMBOLS) {
             const spriteName = SYMBOLS[symbol];
-            textures[spriteName] = PIXI.BaseTexture.fromImage(`assets/${spriteName}.png`);
+            this.textures[spriteName] = PIXI.BaseTexture.fromImage(`assets/${spriteName}.png`);
         }
 
         this.robots = [];
@@ -125,7 +125,7 @@ export const Board = {
                 if (symbol in SYMBOLS) {
                     // Create a sprite for the current symbol
                     const spriteName = SYMBOLS[symbol];
-                    const texture = new PIXI.Texture(textures[spriteName]);
+                    const texture = new PIXI.Texture(this.textures[spriteName]);
                     const sprite = new PIXI.Sprite(texture);
 
                     // Center the sprite in the current tile
@@ -182,7 +182,7 @@ export const Board = {
 
        // Show remaining lives at the bottom of the screen.
        this.lifeSprites = [];
-       const texture = new PIXI.Texture(textures.human, player.getDefaultFrame());
+       const texture = new PIXI.Texture(this.textures.human, player.getDefaultFrame());
        for (let i = 0; i < HUMAN_LIVES; i ++) {
            const sprite = new PIXI.Sprite(texture);
            sprite.anchor.x = sprite.anchor.y = 0.5;
@@ -362,6 +362,15 @@ export const Board = {
         return "empty";
     },
 
+    getSymbol(name) {
+        for (let s in SYMBOLS) {
+            if (SYMBOLS[s] === name) {
+                return s;
+            }
+        }
+        return " ";
+    },
+    
     canMoveLeft(x, y) {
         return x > 0 && this.getTileType(x - 1, y) !== "brick";
     },
