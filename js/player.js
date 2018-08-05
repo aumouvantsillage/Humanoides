@@ -271,7 +271,11 @@ export const Player = {
         // Move the sprite.
         if (this.state === "falling") {
             this.vyPix += this.board.gravity;
+            // if (this.vyPix > PLAYER_HEIGHT_PX / 5) {
+            //     this.vyPix = PLAYER_HEIGHT_PX / 5;
+            // }
         }
+
         this.sprite.x += this.vxPix;
         this.sprite.y += this.vyPix;
 
