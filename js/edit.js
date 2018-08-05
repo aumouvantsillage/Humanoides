@@ -5,10 +5,18 @@ import * as player from "./player.js";
 
 const BoardEditor = Object.create(Board);
 
-BoardEditor.setup = function () {
-    this.link = document.querySelector("a");
+BoardEditor.init = function (data, onLoad) {
+    // Add texture for palette cursor.
+    PIXI.loader.add("assets/cursor.png");
 
+    Board.init.call(this, data, onLoad);
+};
+
+BoardEditor.setup = function () {
     Board.setup.call(this);
+
+    // Load texture for palette cursor.
+    this.textures.cursor = PIXI.BaseTexture.fromImage("assets/cursor.png");
 
     // Create sprite palette.
     this.palette = {};
@@ -18,10 +26,12 @@ BoardEditor.setup = function () {
     this.addPaletteTile("ladder", -3);
     this.addPaletteTile("rope",   -2);
     this.addPaletteTile("gift",   -1);
+    this.addPaletteTile("cursor", -6);
     this.selectSprite("human");
 
+    // Setup click handler on canvas.
     const rect = this.renderer.view.getBoundingClientRect();
-    this.renderer.view.addEventListener("click", (evt) => {
+    this.renderer.view.addEventListener("click", evt => {
         const x = this.xPixToTile(evt.clientX - rect.left);
         const y = this.yPixToTile(evt.clientY - rect.top);
         if (evt.shiftKey) {
@@ -33,6 +43,11 @@ BoardEditor.setup = function () {
         evt.stopPropagation();
     });
 
+    // Remove the life markers.
+    this.lifeSprites.forEach(sprite => this.stage.removeChild(sprite));
+
+    // Initialize the link to the play the game.
+    this.link = document.querySelector("a");
     this.updateLink();
 };
 
@@ -47,7 +62,7 @@ BoardEditor.addPaletteTile = function (name, index) {
     this.stage.addChild(sprite);
 
     sprite.interactive = true;
-    sprite.addListener("click", (evt) => {
+    sprite.addListener("click", evt => {
         this.selectSprite(name);
         evt.stopPropagation();
     });
@@ -56,7 +71,8 @@ BoardEditor.addPaletteTile = function (name, index) {
 
 BoardEditor.selectSprite = function (name) {
     this.currentSpriteName = name;
-    // TODO highlight selected sprite in palette.
+    this.palette.cursor.x = this.palette[name].x;
+    this.renderer.render(this.stage);
 };
 
 BoardEditor.removeTile = function (x, y) {
@@ -111,13 +127,11 @@ BoardEditor.updateLink = function () {
     this.link.setAttribute("href", "index.html#" + this.encode());
 };
 
-BoardEditor.run = function () {
+// Disable the game logic
+BoardEditor.run = function () {};
 
-};
-
-BoardEditor.onKeyChange = function (evt, down) {
-
-};
+// Ignore keyboard events.
+BoardEditor.onKeyChange = function (evt, down) {};
 
 const defaultBoard = [
     "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%",
