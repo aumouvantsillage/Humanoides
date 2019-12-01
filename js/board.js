@@ -24,6 +24,7 @@ const SYMBOLS = {
 };
 
 const KEYS = {
+    start:      [" "],
     left:       ["ArrowLeft"],
     up:         ["ArrowUp"],
     right:      ["ArrowRight"],
@@ -65,6 +66,7 @@ export class Board {
         this.gravity     = TILE_HEIGHT_PX / this.heightTiles / 18;
         this.renderer    = PIXI.autoDetectRenderer(this.widthTiles * TILE_WIDTH_PX, (this.heightTiles + 1) * TILE_HEIGHT_PX + 2 * MARGIN);
         this.stage       = new PIXI.Container();
+        this.running     = false;
 
         document.body.appendChild(this.renderer.view);
 
@@ -78,7 +80,6 @@ export class Board {
                 onLoad(this);
             }
             this.renderer.render(this.stage);
-            this.run();
         });
     }
 
@@ -327,6 +328,13 @@ export class Board {
     }
 
     onKeyChange(evt, down) {
+        if (!down && KEYS.start.indexOf(evt.key) >= 0 && !this.running) {
+            this.run();
+            evt.preventDefault();
+            evt.stopPropagation();
+            return;
+        }
+
         for (let key in KEYS) {
             if (KEYS[key].indexOf(evt.key) >= 0) {
                 this.player.commands[key] = down;
