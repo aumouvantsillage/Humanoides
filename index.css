@@ -86,6 +86,7 @@ canvas {
     left: 0;
     top: 1rem;
     width: 8rem;
+    max-width: calc(49vw - 480px);
 }
 
 footer {
