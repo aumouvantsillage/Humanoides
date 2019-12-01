@@ -68,7 +68,8 @@ export class Board {
         this.stage       = new PIXI.Container();
         this.running     = false;
 
-        document.body.appendChild(this.renderer.view);
+        const footer = document.querySelector("footer");
+        footer.parentNode.insertBefore(this.renderer.view, footer);
 
         for (let name of Object.values(SYMBOLS)) {
             PIXI.loader.add(`assets/${name}.png`);

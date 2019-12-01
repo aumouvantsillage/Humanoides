@@ -77,9 +77,25 @@ canvas {
     border-radius: 0.5rem;
 }
 
+.center {
+    text-align: center;
+}
+
 #vertical-banner {
     position: absolute;
     left: 0;
-    top: 5em;
-    width: 8em;
+    top: 1rem;
+    width: 8rem;
+}
+
+footer {
+    display: table;
+    width: 100%;
+    text-align: center;
+}
+
+footer > span, footer > a {
+    display: table-cell;
+    vertical-align: middle;
+    padding: 0 1rem;
 }
