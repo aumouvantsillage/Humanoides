@@ -8,78 +8,76 @@ const PLAYER_SPEED_PX_PER_FRAME = 2; // Pixels / 60 ms
 
 // TODO add animation for breaking
 const PLAYER_STATES = {
-    "standing": [6],
-    "running-left": [0, 1, 2, 3, 4, 5],
+    "standing"     : [6],
+    "running-left" : [0, 1, 2, 3, 4, 5],
     "running-right": [7, 8, 9, 10, 11, 12],
-    "hanging": [19],
-    "hanging-left": [19, 20, 21, 22],
+    "hanging"      : [19],
+    "hanging-left" : [19, 20, 21, 22],
     "hanging-right": [19, 20, 21, 22],
-    "climbing": [18],
-    "climbing-up": [15, 16, 17, 18],
+    "climbing"     : [18],
+    "climbing-up"  : [15, 16, 17, 18],
     "climbing-down": [15, 16, 17, 18],
-    "falling": [13, 13, 13, 14, 14, 14],
-    "exploding": [23, 24, 25, 26]
+    "falling"      : [13, 13, 13, 14, 14, 14],
+    "exploding"    : [23, 24, 25, 26]
 };
 
 export function getDefaultFrame() {
      return new PIXI.Rectangle(PLAYER_STATES.standing[0] * PLAYER_WIDTH_PX + 0.5, 0, PLAYER_WIDTH_PX - 1, PLAYER_HEIGHT_PX);
 }
 
-export const Player = {
-    init(board, sprite, xtl, ytl) {
-        this.board = board;
-        this.sprite = sprite;
-        this.state = "standing";
-        this.xTileInit = xtl;
-        this.yTileInit = ytl;
-        this.step = 0;
-        this.vxPix = 0;
-        this.vyPix = 0;
+export class Player {
+    constructor(board, sprite, xtl, ytl) {
+        this.board        = board;
+        this.sprite       = sprite;
+        this.state        = "standing";
+        this.xTileInit    = xtl;
+        this.yTileInit    = ytl;
+        this.step         = 0;
+        this.vxPix        = 0;
+        this.vyPix        = 0;
         this.frameCounter = 0;
-        this.commands = {};
+        this.commands     = {};
 
         this.sprite.texture.frame = getDefaultFrame();
-
-        return this;
-    },
+    }
 
     reset() {
         this.xTile = this.xTileInit;
         this.yTile = this.yTileInit;
         this.stand();
-    },
+    }
 
     get xTile() {
         return this.board.xPixToTile(this.sprite.x);
-    },
+    }
 
     set xTile(x) {
         this.sprite.x = this.board.xTileToPix(x);
-    },
+    }
 
     get yTile() {
         return this.board.yPixToTile(this.sprite.y);
-    },
+    }
 
     set yTile(y) {
         this.sprite.y = this.board.yTileToPix(y);
-    },
+    }
 
     get xPix() {
         return this.sprite.x;
-    },
+    }
 
     get yPix() {
         return this.sprite.y;
-    },
+    }
 
     getDistanceToTarget(t, x = this.xTile, y = this.yTile) {
         return this.board.hints[this.board.targets.indexOf(t)][y][x].distance;
-    },
+    }
 
     getMoveToTarget(t, x = this.xTile, y = this.yTile) {
         return this.board.hints[this.board.targets.indexOf(t)][y][x].move;
-    },
+    }
 
     get nearestTarget() {
         // Determine the next tile in the current player movement.
@@ -100,8 +98,8 @@ export const Player = {
 
         // Compute the distance from the current location and from the next location to each active target.
         let targets = this.board.targets.filter(t => t.active).map(t => ({
-                target: t,
-                distance: this.getDistanceToTarget(t),
+                target      : t,
+                distance    : this.getDistanceToTarget(t),
                 nextDistance: this.getDistanceToTarget(t, xtl, ytl)
             }));
 
@@ -111,39 +109,39 @@ export const Player = {
         }
         // Keep the target with the lowest distance.
         return targets.reduce((a, b) => a.distance <= b.distance ? a : b).target;
-    },
+    }
 
     get canMoveLeft() {
         return this.board.canMoveLeft(this.xTile, this.yTile);
-    },
+    }
 
     get canMoveRight() {
         return this.board.canMoveRight(this.xTile, this.yTile);
-    },
+    }
 
     get canStand() {
         return this.board.canStand(this.xTile, this.yTile);
-    },
+    }
 
     get canHang() {
         return this.board.canHang(this.xTile, this.yTile);
-    },
+    }
 
     get canClimbUp() {
         return this.board.canClimbUp(this.xTile, this.yTile);
-    },
+    }
 
     get canClimbDown() {
         return this.board.canClimbDown(this.xTile, this.yTile);
-    },
+    }
 
     get canBreakLeft() {
         return this.board.canBreakLeft(this.xTile, this.yTile);
-    },
+    }
 
     get canBreakRight() {
         return this.board.canBreakRight(this.xTile, this.yTile);
-    },
+    }
 
     stand() {
         if (this.canClimbUp) {
@@ -152,73 +150,73 @@ export const Player = {
         else {
             this.state = "standing";
         }
-        this.step = 0;
+        this.step  = 0;
         this.vxPix = 0;
         this.vyPix = 0;
-    },
+    }
 
     runLeft() {
         this.state = "running-left";
-        this.step = 0;
+        this.step  = 0;
         this.vxPix = -PLAYER_SPEED_PX_PER_FRAME;
         this.vyPix = 0;
-    },
+    }
 
     runRight() {
         this.state = "running-right";
-        this.step = 0;
+        this.step  = 0;
         this.vxPix = PLAYER_SPEED_PX_PER_FRAME;
         this.vyPix = 0;
-    },
+    }
 
     fall() {
         this.state = "falling";
-        this.step = 0;
+        this.step  = 0;
         this.vxPix = 0;
         this.vyPix = 0;
-    },
+    }
 
     hang() {
         this.state = "hanging";
-        this.step = 0;
+        this.step  = 0;
         this.vxPix = 0;
         this.vyPix = 0;
-    },
+    }
 
     hangLeft() {
         this.state = "hanging-left";
-        this.step = 0;
+        this.step  = 0;
         this.vxPix = -PLAYER_SPEED_PX_PER_FRAME;
         this.vyPix = 0;
-    },
+    }
 
     hangRight() {
         this.state = "hanging-right";
-        this.step = 0;
+        this.step  = 0;
         this.vxPix = PLAYER_SPEED_PX_PER_FRAME;
         this.vyPix = 0;
-    },
+    }
 
     climbUp() {
         this.state = "climbing-up";
-        this.step = 0;
+        this.step  = 0;
         this.vxPix = 0;
         this.vyPix = -PLAYER_SPEED_PX_PER_FRAME;
-    },
+    }
 
     climbDown() {
         this.state = "climbing-down";
-        this.step = 0;
+        this.step  = 0;
         this.vxPix = 0;
         this.vyPix = PLAYER_SPEED_PX_PER_FRAME;
-    },
+    }
 
     explode() {
         this.state = "exploding";
-        this.step = 0;
+        this.step  = 0;
         this.vxPix = 0;
         this.vyPix = 0;
-    },
+    }
 
     finishMove(method) {
         let xTileCenterPix = this.board.xTileToPix(this.xTile);
@@ -236,7 +234,7 @@ export const Player = {
             this.sprite.y = yTileCenterPix;
             method.call(this);
         }
-    },
+    }
 
     moveToEmptyLocation(x, y) {
         const positions = [ [y - 1, x], [y, x - 1], [y, x + 1], [y + 1, x]];
@@ -251,7 +249,7 @@ export const Player = {
                 break;
             }
         }
-    },
+    }
 
     update() {
         // Animate the sprite.
@@ -472,4 +470,4 @@ export const Player = {
                 }
         }
     }
-};
+}

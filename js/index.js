@@ -1,7 +1,7 @@
 
-import {Board} from "./board.js"
+import {Board, decode} from "./board.js"
 
-const board1 = [
+const defaultBoard = [
     "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%",
     "%       X                              %",
     "%   H%%%%%%%%                          %",
@@ -26,36 +26,13 @@ const board1 = [
     "%%%H                                H%%%"
 ];
 
-const board2 = [
-    "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%",
-    "%       X                              %",
-    "%                            @   #     %",
-    "%                       H%%%%%%%%%%%%%H%",
-    "% @                     H             H%",
-    "% HHHH%%%%%%%%%%%%%%%%% H             H%",
-    "% HHHH        @         H             H%",
-    "% HHHH     H%%%%%%%%%%%%H             H%",
-    "% HHHH     H                          H%",
-    "% HHHH     H                          H%",
-    "% HHHH     H                          H%",
-    "% %%%%%%%%%H                          H%",
-    "%          H         #       @        H%",
-    "%          H%%%%%%%%%%%%%%%%%%%%%%%%%%H%",
-    "%          H                          H%",
-    "%          H                          H%",
-    "%          H------------------------- H%",
-    "%          H                          H%",
-    "%          H                          H%",
-    "%          H                          H%",
-    "%          H                          H%",
-    "%          H    @                     H%",
-];
-
 window.addEventListener("load", () => {
-    if (!window.location.hash.length) {
-        Board.init(board1, b => window.location.hash = "#" + b.encode());
-    }
-    else {
-        Board.decode(window.location.hash.slice(1));
-    }
+    const data = window.location.hash.length ?
+        decode(window.location.hash.slice(1)) :
+        defaultBoard;
+
+    new Board(data, b => {
+        window.location.hash = "#" + b.encode();
+        document.querySelector("#edit").setAttribute("href", "edit.html" + window.location.hash);
+    });
 });

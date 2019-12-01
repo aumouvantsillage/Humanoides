@@ -4,10 +4,10 @@ import * as player from "./player.js";
 import {Human, HUMAN_LIVES} from "./human.js";
 import {Robot} from "./robot.js";
 
-export const TILE_WIDTH_PX      = 24;
-export const TILE_HEIGHT_PX     = 24;
-export const MARGIN             = 4;
-const TILE_HIDE_DELAY_MS = 5000;
+export const TILE_WIDTH_PX  = 24;
+export const TILE_HEIGHT_PX = 24;
+export const MARGIN         = 4;
+const TILE_HIDE_DELAY_MS    = 5000;
 
 const FALL_COST = 0.9;
 const BRICK_COST = TILE_HEIGHT_PX + TILE_WIDTH_PX;
@@ -32,20 +32,46 @@ const KEYS = {
     breakRight: ["d", "D"]
 };
 
-export const Board = {
-    init(data, onLoad) {
-        this.finish = false;
-        this.rows = data.map(row => row.split(""));
-        this.widthTiles = Math.max(...this.rows.map(r => r.length));
-        this.heightTiles = this.rows.length;
-        this.gravity = TILE_HEIGHT_PX / this.heightTiles / 18;
+export function decode(str) {
+    const bytes  = atob(str).split("").map(c => c.charCodeAt(0));
+    const width  = bytes[0];
+    const height = bytes[1];
+    const data   = [];
+    let row      = [];
 
-        this.renderer = PIXI.autoDetectRenderer(this.widthTiles * TILE_WIDTH_PX, (this.heightTiles + 1) * TILE_HEIGHT_PX + 2 * MARGIN);
+    for (let i = 2; i < bytes.length; i ++) {
+        const symbolIndex = Math.floor(bytes[i] / ENCODING_RUN_LENGTH_MAX);
+        const symbol      = symbolIndex > 0 ? Object.keys(SYMBOLS)[symbolIndex - 1] : " ";
+        const count       = bytes[i] % ENCODING_RUN_LENGTH_MAX + 1;
+
+        for (let j = 0; j < count; j ++) {
+            row.push(symbol);
+            if (row.length === width) {
+                data.push(row.join(""));
+                row = [];
+            }
+        }
+    }
+
+    return data;
+}
+
+export class Board {
+    constructor(data, onLoad) {
+        this.finish      = false;
+        this.rows        = data.map(row => row.split(""));
+        this.widthTiles  = Math.max(...this.rows.map(r => r.length));
+        this.heightTiles = this.rows.length;
+        this.gravity     = TILE_HEIGHT_PX / this.heightTiles / 18;
+        this.renderer    = PIXI.autoDetectRenderer(this.widthTiles * TILE_WIDTH_PX, (this.heightTiles + 1) * TILE_HEIGHT_PX + 2 * MARGIN);
+        this.stage       = new PIXI.Container();
+
         document.body.appendChild(this.renderer.view);
 
-        this.stage = new PIXI.Container();
+        for (let name of Object.values(SYMBOLS)) {
+            PIXI.loader.add(`assets/${name}.png`);
+        }
 
-        Object.values(SYMBOLS).forEach(name => PIXI.loader.add(`assets/${name}.png`));
         PIXI.loader.load(() => {
             this.setup();
             if (onLoad) {
@@ -54,9 +80,7 @@ export const Board = {
             this.renderer.render(this.stage);
             this.run();
         });
-
-        return this;
-    },
+    }
 
     encode() {
         const res = [this.widthTiles, this.heightTiles];
@@ -68,40 +92,21 @@ export const Board = {
             res.push((count - 1) + (Object.keys(SYMBOLS).indexOf(prev) + 1) * ENCODING_RUN_LENGTH_MAX);
         }
 
-        this.rows.forEach(r => r.forEach(c => {
-            if (c !== prev || count === ENCODING_RUN_LENGTH_MAX) {
-                push();
-                prev = c;
-                count = 0;
+        for (let r of this.rows) {
+            for (let c of r) {
+                if (c !== prev || count === ENCODING_RUN_LENGTH_MAX) {
+                    push();
+                    prev = c;
+                    count = 0;
+                }
+                count ++;
             }
-            count ++;
-        }));
+        }
+
         push();
 
         return btoa(res.map(c => String.fromCharCode(c)).join(""));
-    },
-
-    decode(str, onLoad) {
-        const bytes = atob(str).split("").map(c => c.charCodeAt(0));
-        const width = bytes[0];
-        const height = bytes[1];
-        const data = [];
-        let row = [];
-        for (let i = 2; i < bytes.length; i ++) {
-            const symbolIndex = Math.floor(bytes[i] / ENCODING_RUN_LENGTH_MAX);
-            const symbol = symbolIndex > 0 ? Object.keys(SYMBOLS)[symbolIndex - 1] : " ";
-            const count = bytes[i] % ENCODING_RUN_LENGTH_MAX + 1;
-
-            for (let j = 0; j < count; j ++) {
-                row.push(symbol);
-                if (row.length === width) {
-                    data.push(row.join(""));
-                    row = [];
-                }
-            }
-        }
-        return this.init(data, onLoad);
-    },
+    }
 
     setup() {
         // Load textures.
@@ -111,9 +116,9 @@ export const Board = {
             this.textures[spriteName] = PIXI.BaseTexture.fromImage(`assets/${spriteName}.png`);
         }
 
-        this.robots = [];
-        this.tiles = [];
-        this.gifts = [];
+        this.robots  = [];
+        this.tiles   = [];
+        this.gifts   = [];
         this.targets = [];
 
         // For each tile
@@ -125,23 +130,23 @@ export const Board = {
                 if (symbol in SYMBOLS) {
                     // Create a sprite for the current symbol
                     const spriteName = SYMBOLS[symbol];
-                    const texture = new PIXI.Texture(this.textures[spriteName]);
-                    const sprite = new PIXI.Sprite(texture);
+                    const texture    = new PIXI.Texture(this.textures[spriteName]);
+                    const sprite     = new PIXI.Sprite(texture);
 
                     // Center the sprite in the current tile
                     sprite.anchor.x = sprite.anchor.y = 0.5;
-                    sprite.x = this.xTileToPix(xtl);
-                    sprite.y = this.yTileToPix(ytl);
+                    sprite.x        = this.xTileToPix(xtl);
+                    sprite.y        = this.yTileToPix(ytl);
                     this.stage.addChild(sprite);
 
                     // Keep a reference to the human sprite
                     switch (spriteName) {
                         case "human":
-                            this.player = Object.create(Human).init(this, sprite, xtl, ytl);
+                            this.player = new Human(this, sprite, xtl, ytl);
                             tileRow.push(null);
                             break;
                         case "robot":
-                            this.robots.push(Object.create(Robot).init(this, sprite, xtl, ytl));
+                            this.robots.push(new Robot(this, sprite, xtl, ytl));
                             tileRow.push(null);
                             break;
                         case "gift":
@@ -184,35 +189,35 @@ export const Board = {
        this.lifeSprites = [];
        const texture = new PIXI.Texture(this.textures.human, player.getDefaultFrame());
        for (let i = 0; i < HUMAN_LIVES; i ++) {
-           const sprite = new PIXI.Sprite(texture);
+           const sprite    = new PIXI.Sprite(texture);
            sprite.anchor.x = sprite.anchor.y = 0.5;
-           sprite.x = (i                + 0.5) * TILE_WIDTH_PX  + MARGIN;
-           sprite.y = (this.heightTiles + 0.5) * TILE_HEIGHT_PX + MARGIN;
+           sprite.x        = (i + 0.5) * TILE_WIDTH_PX + MARGIN;
+           sprite.y        = (this.heightTiles + 0.5) * TILE_HEIGHT_PX + MARGIN;
            this.stage.addChild(sprite);
 
            this.lifeSprites.push(sprite);
        }
 
        this.remainingGifts = this.gifts.length;
-       this.targets = this.targets.concat(this.gifts);
+       this.targets        = this.targets.concat(this.gifts);
 
        this.computeHints();
 
        window.addEventListener("keydown", (evt) => this.onKeyChange(evt, true));
        window.addEventListener("keyup",   (evt) => this.onKeyChange(evt, false));
-   },
+   }
 
    computeHints() {
        // Initialize the map with empty cells.
        if (!this.hints) {
            this.hints = this.targets.map(t => this.rows.map(r => r.map(c => ({
-               move: '?',
+               move    : '?',
                distance: Infinity
            }))));
        }
        else {
            this.hints.forEach((m, i) => m.forEach((r, y) => r.forEach(c => {
-               c.move = '?';
+               c.move     = '?';
                c.distance = Infinity;
            })));
        }
@@ -220,7 +225,7 @@ export const Board = {
        this.targets.forEach((g, gi) => {
            const currentMap = this.hints[gi];
 
-           currentMap[g.y][g.x].move = '@';
+           currentMap[g.y][g.x].move     = '@';
            currentMap[g.y][g.x].distance = 0;
 
            // Compute the hint map for the current target.
@@ -309,7 +314,7 @@ export const Board = {
                }
            }));
        });
-   },
+    }
 
     run() {
         // Loop until the player has 0 lives.
@@ -319,7 +324,7 @@ export const Board = {
         // Loop this function every 60 ms
         requestAnimationFrame(() => this.run());
         this.update();
-    },
+    }
 
     onKeyChange(evt, down) {
         for (let key in KEYS) {
@@ -330,29 +335,29 @@ export const Board = {
                 return;
             }
         }
-    },
+    }
 
     update() {
         this.player.update();
         this.robots.forEach(r => r.update());
         this.renderer.render(this.stage);
-    },
+    }
 
     xPixToTile(x) {
         return Math.floor(x / TILE_WIDTH_PX);
-    },
+    }
 
     yPixToTile(y) {
         return Math.floor(y / TILE_HEIGHT_PX);
-    },
+    }
 
     xTileToPix(x) {
         return (x + 0.5) * TILE_WIDTH_PX;
-    },
+    }
 
     yTileToPix(y) {
         return (y + 0.5) * TILE_HEIGHT_PX;
-    },
+    }
 
     getTileType(x, y) {
         const symbol = this.rows[y][x];
@@ -360,7 +365,7 @@ export const Board = {
             return SYMBOLS[symbol];
         }
         return "empty";
-    },
+    }
 
     getSymbol(name) {
         for (let s in SYMBOLS) {
@@ -369,41 +374,41 @@ export const Board = {
             }
         }
         return " ";
-    },
-    
+    }
+
     canMoveLeft(x, y) {
         return x > 0 && this.getTileType(x - 1, y) !== "brick";
-    },
+    }
 
     canMoveRight(x, y) {
         return x + 1 < this.widthTiles && this.getTileType(x + 1, y) !== "brick";
-    },
+    }
 
     canStand(x, y) {
         return y + 1 === this.heightTiles ||
                this.getTileType(x, y + 1) === "brick" ||
                this.getTileType(x, y + 1) === "ladder";
-    },
+    }
 
     canHang(x, y) {
         return this.getTileType(x, y) === "rope";
-    },
+    }
 
     canClimbUp(x, y) {
         return this.getTileType(x, y) === "ladder";
-    },
+    }
 
     canClimbDown(x, y) {
         return y + 1 < this.heightTiles && this.getTileType(x, y + 1) === "ladder";
-    },
+    }
 
     canBreakLeft(x, y) {
         return y + 1 < this.heightTiles && x > 0 && this.getTileType(x - 1, y + 1) === "brick";
-    },
+    }
 
     canBreakRight(x, y) {
         return y + 1 < this.heightTiles && x + 1 < this.widthTiles && this.getTileType(x + 1, y + 1) === "brick";
-    },
+    }
 
     hideTile(x, y) {
         let symbol = this.rows[y][x];
@@ -414,7 +419,7 @@ export const Board = {
         tile.visible = false;
 
         return [symbol, tile];
-    },
+    }
 
     breakBrick(x, y) {
         let [symbol, tile] = this.hideTile(x, y);
@@ -438,7 +443,7 @@ export const Board = {
 
             this.computeHints();
         }, TILE_HIDE_DELAY_MS);
-    },
+    }
 
     collectGift(x, y) {
         const g = this.gifts.find(g => g.x === x && g.y === y);
@@ -451,7 +456,7 @@ export const Board = {
         let tile = this.tiles[y][x];
         tile.x = (this.widthTiles  - 0.5) * TILE_WIDTH_PX - this.remainingGifts * (TILE_WIDTH_PX + MARGIN) - MARGIN;
         tile.y = (this.heightTiles + 0.5) * TILE_HEIGHT_PX + MARGIN;
-    },
+    }
 
     checkFinish() {
         // Update the displayed player lives.
@@ -469,4 +474,4 @@ export const Board = {
         this.player.reset();
         this.robots.forEach(r => r.reset());
     }
-};
+}
