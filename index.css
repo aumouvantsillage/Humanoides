@@ -76,3 +76,10 @@ canvas {
     padding: 0 0.5rem;
     border-radius: 0.5rem;
 }
+
+#vertical-banner {
+    position: absolute;
+    left: 0;
+    top: 5em;
+    width: 8em;
+}
