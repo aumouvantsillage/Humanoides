@@ -30,10 +30,10 @@ class BoardEditor extends Board {
         this.selectSprite("human");
 
         // Setup click handler on canvas.
-        const rect = this.renderer.view.getBoundingClientRect();
         this.renderer.view.addEventListener("click", evt => {
-            const x = this.xPixToTile(evt.clientX - rect.left);
-            const y = this.yPixToTile(evt.clientY - rect.top);
+            const rect = this.renderer.view.getBoundingClientRect();
+            const x    = this.xPixToTile(evt.clientX - rect.left);
+            const y    = this.yPixToTile(evt.clientY - rect.top);
             if (evt.shiftKey) {
                 this.removeTile(x, y);
             }
