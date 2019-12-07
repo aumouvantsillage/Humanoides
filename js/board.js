@@ -330,6 +330,7 @@ export class Board {
 
     onKeyChange(evt, down) {
         if (!down && KEYS.start.indexOf(evt.key) >= 0 && !this.running) {
+            this.renderer.view.scrollIntoView(false);
             this.run();
             evt.preventDefault();
             evt.stopPropagation();
