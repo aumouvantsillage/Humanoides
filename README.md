@@ -35,7 +35,7 @@ sudo npm install -g grunt
 Clone this repository and build:
 
 ```
-git clone https://github.com/senshu/Humanoides.git
+git clone https://github.com/aumouvantsillage/Humanoides.git
 cd Humanoides
 npm install
 grunt
